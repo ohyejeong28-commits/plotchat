@@ -15,6 +15,7 @@ import { initOverlays, showToast } from "./ui.js";
 import { initViewport } from "./viewport.js";
 import { isDesktop, markDirty, receiveFromPC } from "./sync.js";
 import { receivedText } from "./views/backup.js";
+import { VERSION } from "./version.js";
 
 // 아래 탭 바, 그리고 data-go="화면이름"이 붙은 버튼들
 document.querySelectorAll(".nav-item").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
@@ -38,6 +39,7 @@ go(loadSettings().apiKey ? "home" : "my");
 
 // PC 앱: 폰으로 보낼 파일을 최신으로 써 둔다 / 폰: PC에서 보낸 새 플롯이 있으면 받아서 합친다
 document.body.classList.toggle("is-desktop", isDesktop());
+document.getElementById("appVersion").textContent = `앱 버전 ${VERSION}`;
 if (isDesktop()) markDirty();
 else receiveNewPlots();
 

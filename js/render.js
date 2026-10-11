@@ -24,9 +24,14 @@ export function splitSegments(body, plot) {
     }
     cur.lines.push(line);
   }
-  return segs
-    .map((s) => ({ ...speakerOf(s.speaker, plot), text: s.lines.join("\n").trim() }))
-    .filter((s) => s.text);
+  // 같은 인물(또는 나레이션)이 연달아 나오면 말풍선 하나로 합친다
+  const merged = [];
+  for (const s of segs.map((s) => ({ ...speakerOf(s.speaker, plot), text: s.lines.join("\n").trim() })).filter((s) => s.text)) {
+    const prev = merged[merged.length - 1];
+    if (prev && prev.kind === s.kind && (s.kind === "narrator" || prev.name === s.name)) prev.text += "\n\n" + s.text;
+    else merged.push(s);
+  }
+  return merged;
 }
 
 function speakerOf(speaker, plot) {
@@ -49,6 +54,7 @@ export const modelShort = (id = "") => {
 // 제타처럼 빈 줄로 나뉜 덩어리는 문단(사이를 띄운다), 한 줄 바꿈은 같은 문단 안에서 다음 줄로.
 export function renderText(text) {
   const inline = (line) => escapeHtml(line)
+    .replace(/\*\(([^*\n]+)\)\*/g, "*$1*") // lite 모델 버릇: *(서술)* → *서술*
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*\n]+)\*/g, '<em class="narr">$1</em>');
   return text.split(/\n\s*\n/)
