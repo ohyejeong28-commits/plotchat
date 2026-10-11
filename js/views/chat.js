@@ -28,6 +28,7 @@ let controller = null; // 답변을 받는 중이면 중지용 컨트롤러가 �
 let deleteFrom = null; // 대화 삭제 모드에서 고른 시작 메시지 id (모드가 아니면 undefined)
 let suggest = { pages: [], index: -1, headId: null, loading: false }; // ⚡ 답변 추천
 let suggestController = null;
+let lastSkipNote = ""; // 같은 모델 대체 알림을 매번 띄우지 않게
 
 export function initChat() {
   register("chat", openChat);
@@ -193,9 +194,16 @@ async function generate(fallbackHeadId, rewrite, { skip = false } = {}) {
   fillModelPicker(); // 한도가 찬 모델 표시를 갱신
   if (error) notice(error);
   else if (skipped.length) {
-    const why = skipped.map((s) => `${modelLabel(s.model)}(${REASON_LABEL[s.reason] || "막힘"})`).join(", ");
-    notice(`${why} 대신 ${modelLabel(usedModel)}(으)로 답했어요. 풀리면 자동으로 다시 위 모델을 써요.`, "info");
-  }
+    // 짧은 알림으로 (이유별로 묶어서). 같은 상황이 이어지면 다시 띄우지 않는다
+    const key = skipped.map((s) => s.model + s.reason).join("|") + usedModel;
+    if (key !== lastSkipNote) {
+      lastSkipNote = key;
+      const groups = {};
+      for (const s of skipped) (groups[s.reason] ||= []).push(modelShort(s.model));
+      const why = Object.entries(groups).map(([r, ms]) => `${ms.join("·")} ${REASON_LABEL[r] || "막힘"}`).join(", ");
+      showToast(`${why} → ${modelShort(usedModel)}(으)로 답했어요`);
+    }
+  } else lastSkipNote = "";
 }
 
 // 요약 안 된 메시지가 많이 쌓였으면 장기 기억을 정리한다. 실패해도 대화에는 지장이 없다 (다음 답변 뒤에 다시 시도).
@@ -377,6 +385,7 @@ function openSuggest() {
   if (!hasKey()) return;
   $("suggestPanel").hidden = false;
   $("suggestBtn").classList.add("open");
+  $("view-chat").classList.add("suggesting");
   if (suggest.headId !== chat.headId || !suggest.pages.length) {
     suggest = { pages: [], index: -1, headId: chat.headId, loading: false };
     nextSuggest();
@@ -388,6 +397,7 @@ function openSuggest() {
 function closeSuggest() {
   $("suggestPanel").hidden = true;
   $("suggestBtn").classList.remove("open");
+  $("view-chat").classList.remove("suggesting");
   suggestController?.abort();
 }
 

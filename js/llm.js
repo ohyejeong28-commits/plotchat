@@ -27,7 +27,8 @@ export async function listModels(apiKey) {
 
 // 답변을 조각조각 받아 onText로 넘기고, 끝나면 전체 답변을 돌려준다
 // unlimited: 언리밋 대화면 Gemini의 조절 가능한 안전 필터를 끈다 (구글이 항상 막는 내용은 그대로 막힌다)
-export async function streamChat({ apiKey, model, system, messages, onText, signal, unlimited = false }) {
+// thinking: "high" 등 생각하기 수준 (lite 모델은 기본으로 생각하지 않아서 켜 주면 답이 훨씬 좋아진다)
+export async function streamChat({ apiKey, model, system, messages, onText, signal, unlimited = false, thinking }) {
   // Gemini는 대화가 user로 시작하고 user/model이 번갈아 나와야 안전하다.
   // 같은 쪽 메시지가 연달아 있으면 하나로 합치고, 캐릭터 인트로로 시작하면 앞에 시작 신호를 넣는다.
   const contents = [];
@@ -41,6 +42,7 @@ export async function streamChat({ apiKey, model, system, messages, onText, sign
 
   const body = { contents };
   if (system) body.systemInstruction = { parts: [{ text: system }] };
+  if (thinking) body.generationConfig = { thinkingConfig: { thinkingLevel: thinking } };
   // (Gemma는 이 설정을 받는지 확인하지 못해서 Gemini 모델에만 붙인다)
   if (unlimited && /gemini/i.test(model)) body.safetySettings = SAFETY_CATEGORIES.map((category) => ({ category, threshold: "BLOCK_NONE" }));
 

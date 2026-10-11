@@ -38,12 +38,13 @@ export async function ask({ system, messages, onText, signal, unlimited = false 
       ctl.abort();
     }, FIRST_CHUNK_TIMEOUT);
     try {
-      const text = await streamChat({
+      const call = (thinking) => streamChat({
         apiKey,
         model: candidate,
         system,
         messages,
         unlimited,
+        thinking,
         signal: ctl.signal,
         onText: (chunk) => {
           started = true;
@@ -51,6 +52,15 @@ export async function ask({ system, messages, onText, signal, unlimited = false 
           onText?.(chunk);
         }
       });
+      // Flash-Lite는 기본으로 생각하지 않는다: 생각하기를 켜면 답이 luca 수준에 훨씬 가까워진다
+      const think = /lite/.test(candidate) ? "high" : undefined;
+      let text = await call(think);
+      if (!text.trim() && think && !started) text = await call(undefined); // 가끔 생각만 하고 빈 답을 준다
+      if (!text.trim()) {
+        skipped.push({ model: candidate, reason: "empty" });
+        lastError = new Error("답이 비어 있어요. 다시 시도해 주세요.");
+        continue;
+      }
       return { text, model: candidate, skipped };
     } catch (err) {
       if (signal?.aborted) throw err; // 사용자가 멈춤
@@ -76,23 +86,21 @@ export async function ask({ system, messages, onText, signal, unlimited = false 
 }
 
 // 품질 순서 사다리. 무료 키로 못 쓰는 모델(Pro, Omni, 이미지, 2.5 등)은 뺀다.
-//   최신 Flash(버전 높은 순, 같은 버전이면 정식판 먼저) → flash-latest → Flash-Lite(버전 높은 순) → Gemma(큰 것부터)
+//   최신 Flash(버전 높은 순, 같은 버전이면 정식판 먼저) → flash-latest → Flash-Lite(버전 높은 순)
+//   Gemma는 뺀다: 무료 Gemma는 서버 오류가 잦고, 영어로 생각하는 과정을 답에 그대로 섞어 내보낸다
 export function modelLadder(models) {
   const ids = models.map((m) => m.id)
-    .filter((id) => /gemini|gemma/i.test(id) && !/pro|omni|image|banana|tts|transcribe|customtools|gemini-2\./i.test(id));
+    .filter((id) => /gemini/i.test(id) && !/gemma|pro|omni|image|banana|tts|transcribe|customtools|gemini-2\./i.test(id));
   const version = (id) => parseFloat(id.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] || 0);
   const preview = (id) => (/preview/.test(id) ? 1 : 0);
   const byVersion = (a, b) => version(b) - version(a) || preview(a) - preview(b);
   const flash = ids.filter((id) => /flash/.test(id) && !/lite/.test(id));
   const lite = ids.filter((id) => /flash-lite/.test(id));
-  const gemma = ids.filter((id) => /gemma/.test(id));
-  const size = (id) => parseInt(id.match(/(\d+)b/)?.[1] || 0, 10);
   return [
     ...flash.filter((id) => version(id)).sort(byVersion),
     ...flash.filter((id) => !version(id)),
     ...lite.filter((id) => version(id)).sort(byVersion),
-    ...lite.filter((id) => !version(id)),
-    ...gemma.sort((a, b) => size(b) - size(a))
+    ...lite.filter((id) => !version(id))
   ];
 }
 
@@ -102,7 +110,7 @@ export function currentAutoModel() {
 }
 
 // 막힌 이유를 사람 말로 (알림, 모델 목록에 쓴다)
-export const REASON_LABEL = { day: "오늘 한도", busy: "서버 붐빔", minute: "잠깐 한도" };
+export const REASON_LABEL = { day: "오늘 한도", busy: "서버 붐빔", minute: "잠깐 한도", empty: "빈 답변" };
 
 // 모델 목록 (없으면 한 번 받아 둔다)
 async function knownModels(apiKey) {

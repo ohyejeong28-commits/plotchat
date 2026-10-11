@@ -372,6 +372,7 @@ select:disabled{color:var(--ink-dim);}
 .chat-notice{margin:0 16px 8px;padding:8px 12px;border-radius:10px;background:rgba(255,77,79,.12);color:var(--err);font-size:14px;}
 .chat-notice.info{background:rgba(165,139,255,.12);color:var(--accent-text);}
 .chat-input{display:flex;align-items:flex-end;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line);}
+#view-chat.suggesting .chat-input{padding-bottom:8px;} /* 추천 패널이 아래 여백을 가진다 */
 .side-btn{flex:none;display:flex;flex-direction:column;align-items:center;gap:1px;width:40px;padding:0;background:none;color:var(--ink-2);}
 .side-ico{width:32px;height:32px;border-radius:50%;background:#3a3a3a;display:grid;place-items:center;}
 .side-ico svg{width:18px;height:18px;}
@@ -380,10 +381,11 @@ select:disabled{color:var(--ink-dim);}
 .side-btn.open .bolt{display:none;}
 .side-btn.open .close{display:block;}
 .side-label{font-size:10px;font-weight:600;}
-.side-btn.open .side-label{visibility:hidden;}
+.side-btn.open .side-label{display:none;}
+.side-btn.open{margin-bottom:10px;} /* ✕를 입력칸 가운데 높이에 */
 .input-pill{flex:1;min-width:0;display:flex;align-items:flex-end;margin-bottom:6px;background:#2a2a2a;border-radius:20px;padding:2px 4px 2px 16px;}
 .input-pill textarea{flex:1;min-width:0;max-height:160px;overflow-y:hidden;resize:none;border:0;background:transparent;padding:8px 0;font-size:15px;line-height:1.28;letter-spacing:-.3px;}
-.input-pill .icon-btn{padding:6px 8px;}
+.input-pill .icon-btn{height:35px;padding:0 8px;display:grid;place-items:center;} /* 한 줄 입력칸 높이와 같게: 가운데 정렬 */
 .input-pill .icon-btn svg{width:18px;height:18px;stroke:#bbb;}
 .send-btn{flex:none;width:32px;height:32px;margin-bottom:9px;padding:0;border-radius:50%;background:#6728ff;display:grid;place-items:center;}
 .send-btn svg{width:15px;height:15px;fill:#fff;}

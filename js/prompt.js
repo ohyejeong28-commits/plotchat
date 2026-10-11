@@ -95,6 +95,7 @@ export function buildSystem(plot, persona, path, { chat, rewrite, summary, userN
     style.moods?.length && `이야기의 분위기: ${style.moods.join(", ")}`,
     STORYTELLING[style.storytelling]?.[2] && `스토리텔링 스타일: ${STORYTELLING[style.storytelling][2]}`,
     "캐릭터의 성격과 말투를 일관되게 지키고, 같은 표현을 반복하지 않는다.",
+    persona && `${user}의 외모, 성격, 말버릇, 몸 상태, 처지 같은 설정을 늘 기억하고, 묘사와 인물들의 시선·반응에 자연스럽게 반영한다. ${user}의 설정과 어긋나게 묘사하지 않는다.`,
     "인물마다 말투 수준(존댓말/반말)과 어미, 상대를 부르는 호칭, 말버릇을 설정과 지금까지의 대화 그대로 유지한다. 관계와 태도는 분명한 계기가 있을 때만 조금씩 바뀐다. 갑자기 다정해지거나 고백하거나 성격이 바뀌지 않고, 세계관에 맞지 않는 현대어·유행어·엉뚱한 농담을 쓰지 않는다.",
     "감정과 속마음은 설명하지 말고 시선, 손짓, 표정, 침묵, 말을 삼키는 순간 같은 작은 행동으로 보여 준다. 서술이 인물의 감정을 대신 해석하거나 단정하지 않는다.",
     "설정에 적힌 키, 외모, 과거사를 그대로 읊지 않는다. 인물들이 이미 아는 사실을 대사로 길게 설명하지 않는다.",
@@ -113,8 +114,9 @@ export function buildSystem(plot, persona, path, { chat, rewrite, summary, userN
 ${rules.map((r) => "- " + r).join("\n")}
 
 ${chatModeRule(unlimited)}`;
-  text += buildContext(plot, persona, path, { summary, userNote });
+  text += buildContext(plot, persona, path, { summary, personaLast: true });
   text += voiceSection(plot, voiceFrom, persona?.name);
+  text += rememberSection(persona, userNote);
 
   // 제타처럼 말하는 주체별로 나눠 쓰게 한다 (채팅 화면에서 내레이션 / 인물별 말풍선으로 보여 준다)
   text += `
@@ -298,7 +300,23 @@ export function choicesOn(plot, chat) {
 }
 
 // 설정 부분 (세계관, 캐릭터, 사용자 캐릭터, 상황 예시, 장기 기억, 유저노트, 이번 장면에 걸린 설정집)
-function buildContext(plot, persona, path, { summary, userNote } = {}) {
+// 맨 끝에 두는 "항상 기억할 것": 유저 설명과 유저노트 (답변 지시문용)
+function rememberSection(persona, userNote) {
+  const parts = [];
+  if (persona) {
+    parts.push(`[사용자 캐릭터: ${persona.name}] 사용자는 '${persona.name}'(으)로 이야기에 참여한다. 아래 설정을 늘 기억하고 그에 맞게 대한다.
+${persona.description?.trim() || `이름: ${persona.name}`}`);
+  }
+  if (userNote?.trim()) parts.push(`[유저노트] 사용자가 꼭 기억해 달라고 적어 둔 내용이다. 항상 반영한다.
+${userNote.trim()}`);
+  return parts.length ? `
+
+[항상 기억할 것]
+${parts.join("\n\n")}` : "";
+}
+
+// personaLast: 유저 설명과 유저노트를 여기서 빼고 지시문 맨 끝(rememberSection)에 둔다
+function buildContext(plot, persona, path, { summary, userNote, personaLast = false } = {}) {
   let text = "";
   if (plot.world?.trim()) {
     text += `
@@ -315,7 +333,7 @@ ${plot.world.trim()}`;
 ${c.desc?.trim() || `이름: ${c.name}`}`;
   }
 
-  if (persona) {
+  if (persona && !personaLast) {
     text += `
 
 [사용자 캐릭터: ${persona.name}] 사용자는 '${persona.name}'(으)로 이야기에 참여한다. 이 설정을 알고 그에 맞게 대한다.
@@ -336,7 +354,7 @@ ${plot.examples.trim()}`;
 ${summary.trim()}`;
   }
 
-  if (userNote?.trim()) {
+  if (userNote?.trim() && !personaLast) {
     text += `
 
 [유저노트] 사용자가 꼭 기억해 달라고 적어 둔 내용이다. 항상 반영한다.
