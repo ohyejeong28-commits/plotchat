@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>플롯챗</title>
+<!-- 아이폰 "홈 화면에 추가"로 앱처럼 쓰기 위한 정보 -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="플롯챗">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#141414">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+<main id="views">
+
+  <!-- 홈: 플롯 카드 2열 -->
+  <section id="view-home" class="view">
+    <header class="page-head"><h1>홈</h1></header>
+    <div id="plotGrid" class="plot-grid"></div>
+    <div id="homeEmpty" class="empty" hidden>
+      <p class="empty-title">아직 플롯이 없어요</p>
+      <button class="primary" type="button" data-go="edit">플롯 제작</button>
+    </div>
+  </section>
+
+  <!-- 만들기: 내 플롯 관리 -->
+  <section id="view-create" class="view">
+    <header class="page-head"><h1>플롯</h1></header>
+    <div id="myPlotList" class="my-plot-list"></div>
+    <div id="createEmpty" class="empty" hidden>
+      <p class="empty-title">내가 원하는 플롯을 직접 제작해볼까요?</p>
+      <button class="primary" type="button" data-go="edit">플롯 제작</button>
+    </div>
+    <button class="fab" type="button" aria-label="새 플롯 만들기" data-go="edit">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </section>
+
+  <!-- 대화: 모든 플롯의 최근 대화 -->
+  <section id="view-chats" class="view">
+    <header class="page-head"><h1>대화</h1></header>
+    <div id="recentList" class="recent-list"></div>
+    <div id="chatsEmpty" class="empty" hidden>
+      <p class="empty-title">아직 대화가 없어요</p>
+      <p class="hint">홈에서 플롯을 골라 대화를 시작해 보세요.</p>
+    </div>
+  </section>
+
+  <!-- 마이페이지: AI 연결, 대화 프로필 -->
+  <section id="view-my" class="view">
+    <header class="page-head"><h1>마이페이지</h1></header>
+
+    <h2 class="pane-title">내 대화 프로필</h2>
+    <p class="hint">대화에서 내가 연기할 캐릭터예요. 캐릭터가 이 이름으로 나를 부르고 설정에 맞게 반응해요.
+      보라 체크가 붙은 기본 프로필은 새 대화에 자동으로 쓰여요.</p>
+    <div class="sheet-group">
+      <button id="personaAdd" class="persona-add" type="button"><span class="plus-circle"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>대화 프로필 추가</button>
+    </div>
+    <div id="personaList" class="sheet-group list-group"></div>
+
+    <h2 class="pane-title">AI 연결</h2>
+    <div class="box">
+      <p class="hint">Google AI Studio에서 무료 API 키를 발급받아 붙여 넣으세요.
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">키 발급 페이지 열기</a></p>
+      <label class="field">
+        <span class="label">Gemini API 키</span>
+        <div class="row">
+          <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza로 시작하는 키">
+          <button id="toggleKey" class="secondary" type="button">보기</button>
+        </div>
+      </label>
+      <div class="row">
+        <button id="checkBtn" class="primary" type="button">저장하고 연결 확인</button>
+        <span id="checkStatus" class="status"></span>
+      </div>
+      <label class="field">
+        <span class="label">모델</span>
+        <select id="model" disabled><option>연결 확인 후 선택할 수 있어요</option></select>
+      </label>
+    </div>
+
+    <h2 class="pane-title">데이터 백업</h2>
+    <div class="box">
+      <p class="hint">플롯, 대화, 대화 프로필, 기억을 파일 하나로 저장하고 다시 불러올 수 있어요.
+        아이폰으로 옮길 때나 컴퓨터를 바꿀 때 써요.</p>
+      <p id="dataStats" class="data-stats"></p>
+      <label class="toggle-row toggle-plain"><span>API 키도 같이 저장<small>다른 기기로 옮길 때 편해요. 이 파일은 남에게 주면 안 돼요.</small></span>
+        <input id="backupKey" type="checkbox" class="switch"></label>
+      <div class="row">
+        <button id="backupExport" class="primary" type="button">백업 파일 만들기</button>
+        <button id="backupImport" class="secondary" type="button">백업 불러오기</button>
+      </div>
+      <p id="backupStatus" class="status"></p>
+      <input id="backupFile" type="file" accept="application/json,.json" hidden>
+    </div>
+
+</section>
+
+  <!-- 플롯 상세 -->
+  <section id="view-plot" class="view">
+    <div id="plotCover" class="plot-cover">
+      <button id="plotBack" class="icon-btn over" type="button" aria-label="뒤로">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="plot-cover-text">
+        <h1 id="plotTitle"></h1>
+        <p id="plotDesc"></p>
+      </div>
+    </div>
+    <div class="plot-body">
+      <div id="plotTags" class="tags"></div>
+      <div id="plotCast" class="cast"></div>
+      <button id="plotContinue" class="primary big" type="button">대화 시작</button>
+      <div class="row plot-subactions">
+        <button id="plotNewChat" class="secondary" type="button">새 대화</button>
+        <button id="plotEdit" class="secondary" type="button">수정</button>
+        <button id="plotDelete" class="secondary danger" type="button">삭제</button>
+      </div>
+      <h2 class="pane-title">저장된 대화</h2>
+      <div id="chatList" class="chat-list"></div>
+      <p id="chatListEmpty" class="hint" hidden>아직 대화가 없어요.</p>
+    </div>
+  </section>
+
+  <!-- 플롯 만들기 / 수정 -->
+  <section id="view-edit" class="view">
+    <header class="edit-top">
+      <button id="editBack" class="icon-btn" type="button" aria-label="닫기">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <h1>플롯</h1>
+      <button id="editSave" class="save-btn" type="button">등록</button>
+    </header>
+    <nav id="editTabs" class="edit-tabs">
+      <button type="button" data-pane="prompt"><sup>*</sup>프롬프트<i class="tab-err">!</i></button>
+      <button type="button" data-pane="lore">설정집</button>
+      <button type="button" data-pane="style">스타일</button>
+      <button type="button" data-pane="intro"><sup>*</sup>인트로<i class="tab-err">!</i></button>
+      <button type="button" data-pane="about">소개</button>
+    </nav>
+    <div id="editCounter" class="edit-counter"></div>
+
+    <div class="pane" data-pane="prompt">
+      <h2 class="pane-title">기본 설정</h2>
+      <div class="box">
+        <label class="field"><span class="label req">제목</span>
+          <span class="input-count"><input id="editTitle" maxlength="20" placeholder="제목을 입력해주세요."><em data-count-for="editTitle"></em></span>
+          <small class="field-err" data-err="title">제목을 입력해주세요</small></label>
+        <label class="field"><span class="label">설명</span>
+          <textarea id="editWorld" rows="5" placeholder="상황, 관계, 세계관 등을 설명해주세요. {{user}}는 내 대화 프로필 이름으로 바뀌어요."></textarea></label>
+      </div>
+      <h2 class="pane-title">캐릭터</h2>
+      <div id="charList" class="char-list"></div>
+      <button id="charAdd" class="secondary wide" type="button">+ 캐릭터 추가 <span id="charCount"></span></button>
+      <p class="note">플레이할 때 내가 쓸 대화 프로필은 마이페이지에서 만들 수 있어요.</p>
+      <hr class="sep">
+      <h2 class="pane-title">상황 예시로 캐릭터의<br>성격과 말투를 표현해 주세요</h2>
+      <p class="hint">전체 글자 수 제한에는 포함되지 않아요 · <span data-count-for="editExamples"></span></p>
+      <textarea id="editExamples" rows="6" maxlength="2000" placeholder='예)&#10;{{user}}: "오늘 날씨 좋네요."&#10;{{char}}: *창밖을 힐끗 본다.* "...그러네요."'></textarea>
+    </div>
+
+    <div class="pane" data-pane="lore">
+      <h2 class="pane-title">설정집</h2>
+      <p class="hint">설정집에 등록한 키워드가 언급될 때마다 작성한 내용이 AI에게 전달돼요.
+        장소, 조직, 인물, 사건처럼 가끔만 필요한 정보를 넣어 두세요.</p>
+      <div id="loreList" class="lore-list"></div>
+      <button id="loreAdd" class="secondary wide" type="button">+ 설정 추가 <span id="loreCount"></span></button>
+    </div>
+
+    <div class="pane" data-pane="style">
+      <h2 class="pane-title">스타일을 자유롭게 조정해 보세요</h2>
+      <div id="stylePane"></div>
+    </div>
+
+    <div class="pane" data-pane="intro">
+      <h2 class="pane-title">첫 상황을 만들어 주세요</h2>
+      <div class="composer">
+        <textarea id="editIntro" rows="10" maxlength="1500" placeholder='*상황을 설명해주세요*&#10;"캐릭터의 첫 대사"'></textarea>
+        <div class="composer-bar">
+          <button type="button" class="chip" data-insert="{{user}}">{{user}}</button>
+          <button type="button" class="chip" data-insert="{{char}}">{{char}}</button>
+          <span class="spacer"></span>
+          <button type="button" class="icon-btn" data-wrap="*" title="*서술*로 감싸기">
+            <svg viewBox="0 0 24 24"><path d="M12 4v16M5 8l14 8M19 8L5 16"/></svg>
+          </button>
+        </div>
+      </div>
+      <small class="field-err" data-err="intro">인트로를 입력해주세요</small>
+      <p class="hint">*별표* 안은 상황 묘사, "따옴표" 안은 대사로 보여요. 새 대화를 시작할 때 캐릭터가 처음 하는 말이에요.</p>
+    </div>
+
+    <div class="pane" data-pane="about">
+      <h2 class="pane-title">커버</h2>
+      <div class="box">
+        <button id="coverPick" class="img-pick cover" type="button"><span>+<br>커버 이미지</span></button>
+        <div class="center"><button id="coverClear" class="text-btn" type="button" hidden>커버 지우기</button></div>
+        <label class="field"><span class="label">짧은 소개</span>
+          <span class="input-count area"><textarea id="editDesc" rows="2" maxlength="40" placeholder="제목과 함께 보일 짧은 소개를 입력해주세요"></textarea><em data-count-for="editDesc"></em></span></label>
+        <div class="field"><span class="label">해시태그</span>
+          <div id="tagList" class="tags editable"></div>
+          <div class="row">
+            <input id="tagInput" maxlength="15" placeholder="태그 입력 후 Enter">
+            <button id="tagAdd" class="secondary" type="button">+ 추가 <span id="tagCount"></span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <input id="imgInput" type="file" accept="image/*" hidden>
+  </section>
+
+  <!-- 채팅 (제타의 대화방) -->
+  <section id="view-chat" class="view">
+    <div class="chat-head">
+      <button id="chatBack" class="icon-btn" type="button" aria-label="뒤로">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div id="chatName" class="chat-name"></div>
+      <select id="chatModel" class="model-pill" aria-label="AI 모델"></select>
+      <button id="chatMenu" class="icon-btn" type="button" aria-label="메뉴">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+    <!-- 대화 삭제 모드에서만 보이는 머리 -->
+    <div class="del-head">
+      <button id="delCancel" class="icon-btn" type="button" aria-label="삭제 취소">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <h1>대화 삭제</h1>
+      <button id="delClear" class="link-btn" type="button">선택 해제</button>
+    </div>
+    <h2 class="del-title">삭제 시작점을 선택해주세요</h2>
+
+    <div class="chat-main">
+      <div id="chatLog" class="chat-log"></div>
+      <button id="scrollDown" class="float-btn" type="button" aria-label="맨 아래로" hidden>
+        <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </div>
+    <div id="chatNotice" class="chat-notice" hidden></div>
+    <form id="chatForm" class="chat-input">
+      <button id="suggestBtn" class="side-btn" type="button" aria-label="답변 추천">
+        <span class="side-ico">
+          <svg class="bolt" viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11l-1 8.5 8.5-11.5H12z"/></svg>
+          <svg class="close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </span>
+        <span class="side-label">추천</span>
+      </button>
+      <div class="input-pill">
+        <textarea id="chatInput" rows="1" placeholder="내용 입력하기"></textarea>
+        <button id="starBtn" class="icon-btn" type="button" aria-label="*서술*로 감싸기">
+          <svg viewBox="0 0 24 24"><path d="M12 4v16M5 8l14 8M19 8L5 16"/></svg>
+        </button>
+      </div>
+      <button id="chatSend" class="send-btn" type="submit" aria-label="보내기">
+        <svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></svg>
+      </button>
+    </form>
+    <div id="suggestPanel" class="suggest-panel" hidden>
+      <div id="suggestList" class="suggest-list"></div>
+      <div class="suggest-foot">
+        <span class="spacer"></span>
+        <button id="suggestPrev" class="round-btn" type="button" aria-label="이전 추천">
+          <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <button id="suggestNext" class="round-btn" type="button" aria-label="다음 추천">
+          <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="del-foot">
+      <button id="delConfirm" class="primary big" type="button" disabled>대화 삭제</button>
+    </div>
+  </section>
+
+  <!-- 이어하기: 저장된 대화 -->
+  <section id="view-saves" class="view">
+    <header class="sub-top">
+      <button id="savesBack" class="icon-btn" type="button" aria-label="뒤로">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <h1>이어하기</h1>
+      <span class="icon-space"></span>
+    </header>
+    <div id="savesCount" class="saves-count"></div>
+    <div id="savesList" class="saves-list"></div>
+  </section>
+
+  <!-- 기억: 유저노트 + 장기 기억 요약 -->
+  <section id="view-memory" class="view">
+    <header class="sub-top">
+      <button id="memoryBack" class="icon-btn" type="button" aria-label="뒤로">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <h1>기억</h1>
+      <span class="icon-space"></span>
+    </header>
+    <div class="persona-edit">
+      <h2 class="pane-title">유저노트</h2>
+      <p class="hint">캐릭터가 대화 내내 꼭 기억했으면 하는 내용을 적어 두세요. 매번 AI에게 전달돼요.
+        예) 혜인은 고양이 알레르기가 있다. 카이저는 혜인의 생일을 모른다.</p>
+      <label class="field">
+        <textarea id="userNote" rows="6" maxlength="1000" placeholder="꼭 기억할 내용"></textarea>
+        <em id="userNoteCount" class="count-accent"></em></label>
+      <h2 class="pane-title">지금까지의 이야기</h2>
+      <p class="hint">대화가 길어지면 앞부분을 자동으로 요약해서 기억해요. 틀린 내용은 직접 고칠 수 있어요.</p>
+      <textarea id="memorySummary" rows="12" placeholder="아직 요약한 내용이 없어요"></textarea>
+      <div class="memory-bar">
+        <small id="memoryInfo" class="memory-info"></small>
+        <button id="memoryRefresh" class="secondary small" type="button">지금 정리하기</button>
+      </div>
+      <button id="memorySave" class="primary big" type="button">저장하기</button>
+    </div>
+  </section>
+
+  <!-- 대화 프로필 편집 -->
+  <section id="view-persona" class="view">
+    <header class="sub-top">
+      <button id="personaBack" class="icon-btn" type="button" aria-label="뒤로">
+        <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <h1>대화 프로필 편집</h1>
+      <button id="personaDelete" class="icon-btn" type="button" aria-label="프로필 삭제">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>
+      </button>
+    </header>
+    <div class="persona-edit">
+      <div class="persona-head">
+        <button id="personaImage" class="avatar xl" type="button" aria-label="프로필 이미지 바꾸기"></button>
+        <div id="personaHeadName" class="persona-head-name"></div>
+      </div>
+      <label class="field"><span class="label">이름 <small>캐릭터가 날 이렇게 부를 거에요</small></span>
+        <input id="personaName" maxlength="20" placeholder="예: 혜인"></label>
+      <label class="field"><span class="label">설명<small class="muted">(선택)</small></span>
+        <textarea id="personaDesc" rows="8" maxlength="1000" placeholder="나이, 외모, 성격, 직업, 캐릭터와의 관계 등"></textarea>
+        <em id="personaCount" class="count-accent"></em></label>
+      <h2 class="pane-title">기본 대화 프로필</h2>
+      <label class="toggle-row toggle-box"><span>새로운 대화 시작할 때 이 프로필 적용하기<small>대화 중에 다른 프로필로 바꿀 수 있어요</small></span>
+        <input id="personaDefault" type="checkbox" class="switch"></label>
+      <button id="personaSave" class="primary big" type="button">저장하기</button>
+    </div>
+    <input id="personaImgInput" type="file" accept="image/*" hidden>
+  </section>
+</main>
+
+<!-- 위에 뜨는 것들: 배경 가림막, 아래 시트, 오른쪽 메뉴, 입력 창 -->
+<div id="overlay" class="overlay" hidden></div>
+<div id="sheet" class="sheet" hidden><div class="sheet-handle"></div><div id="sheetBody"></div></div>
+<aside id="drawer" class="drawer" hidden><div id="drawerBody"></div></aside>
+<div id="modal" class="modal" hidden>
+  <div class="modal-card">
+    <h3 id="modalTitle"></h3>
+    <p id="modalMessage"></p>
+    <input id="modalInput">
+    <div class="row">
+      <button id="modalCancel" class="secondary" type="button">취소</button>
+      <button id="modalOk" class="primary" type="button">확인</button>
+    </div>
+  </div>
+</div>
+
+<nav id="bottomNav">
+  <button class="nav-item" type="button" data-view="home">
+    <svg viewBox="0 0 24 24"><path class="fill" d="M12 3.2 3 10.6V20a1 1 0 0 0 1 1h5.5v-6h5v6H20a1 1 0 0 0 1-1v-9.4z"/></svg><span>홈</span></button>
+  <button class="nav-item" type="button" data-view="create">
+    <svg viewBox="0 0 24 24"><circle class="fill" cx="12" cy="12" r="9.5"/><path class="cut" d="M12 7.5v9M7.5 12h9"/></svg><span>만들기</span></button>
+  <button class="nav-item" type="button" data-view="chats">
+    <svg viewBox="0 0 24 24"><path class="fill" d="M12 3C6.8 3 2.5 6.6 2.5 11c0 2.3 1.2 4.4 3.1 5.9L5 21l4.3-2.4c.9.2 1.8.3 2.7.3 5.2 0 9.5-3.6 9.5-8S17.2 3 12 3z"/><circle class="dot" cx="8" cy="11" r="1.2"/><circle class="dot" cx="12" cy="11" r="1.2"/><circle class="dot" cx="16" cy="11" r="1.2"/></svg><span>대화</span></button>
+  <button class="nav-item" type="button" data-view="my">
+    <svg viewBox="0 0 24 24"><circle class="fill" cx="12" cy="8" r="4.5"/><path class="fill" d="M3.5 21c0-4.4 3.8-7.5 8.5-7.5s8.5 3.1 8.5 7.5z"/></svg><span>마이페이지</span></button>
+</nav>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
