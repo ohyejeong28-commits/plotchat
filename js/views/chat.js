@@ -163,7 +163,7 @@ async function generate(fallbackHeadId, rewrite, { skip = false } = {}) {
   let skipped = [];
   try {
     const result = await ask({
-      system: buildSystem(thisPlot, thisPersona, history, { chat: thisChat, rewrite, summary, userNote, unlimited, voiceFrom: path }),
+      system: buildSystem(thisPlot, thisPersona, history, { chat: thisChat, rewrite, summary, userNote, unlimited, voiceFrom: path, traits: memory.traits }),
       messages: skip && history.at(-1)?.role === "assistant"
         ? [...buildMessages(history, thisPlot, thisPersona), { role: "user", content: skipTurnRequest(thisPersona) }]
         : buildMessages(history, thisPlot, thisPersona),
@@ -416,7 +416,7 @@ async function nextSuggest() {
   let text = "";
   try {
     await ask({
-      system: buildSuggestSystem(plot, persona, recent, { summary, userNote: memory.userNote, unlimited }),
+      system: buildSuggestSystem(plot, persona, recent, { summary, userNote: memory.userNote, traits: memory.traits, unlimited }),
       messages: [...buildMessages(recent, plot, persona), { role: "user", content: SUGGEST_REQUEST }],
       unlimited,
       signal: suggestController.signal,

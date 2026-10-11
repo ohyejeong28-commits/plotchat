@@ -4,7 +4,7 @@
 // 폰(웹)은 앱을 열 때 더 새로운 파일이 있으면 받아서 합친다. 대화는 건드리지 않는다.
 // PC에서 지운 플롯/대화 프로필은 지운 목록으로 같이 보내서 폰에서도 지운다 (지운 플롯의 대화도 같이).
 import { getAll, put, del, putMany } from "./db.js";
-import { loadSettings } from "./settings.js";
+import { loadSettings, saveSettings } from "./settings.js";
 import { deleteChatsOfPlot } from "./chats.js";
 
 const FILE = "sync/plots.json";
@@ -73,7 +73,7 @@ export async function buildFile({ withChats = false } = {}) {
   // 지웠다가 같은 id로 다시 생긴 것은 지운 목록에서 뺀다
   const deleted = deletedList();
   const alive = (store, list) => (deleted[store] || []).filter((id) => !list.some((x) => x.id === id));
-  const data = { plots, personas, deleted: { plots: alive("plots", plots), personas: alive("personas", personas) } };
+  const data = { plots, personas, defaultPersonaId: loadSettings().defaultPersonaId || "", deleted: { plots: alive("plots", plots), personas: alive("personas", personas) } };
   if (withChats) Object.assign(data, { chats: await getAll("chats"), messages: await getAll("messages"), memories: await getAll("memories") });
   return JSON.stringify({ format: FORMAT, version: 1, updatedAt: Date.now(), ...(await encrypt(data, apiKey)) });
 }
@@ -133,6 +133,10 @@ export async function receiveFromPC({ force = false } = {}) {
     else added++;
   }
   for (const persona of data.personas || []) await put("personas", persona);
+  // 폰에 기본 프로필이 없으면 PC의 기본 프로필로 (소개 글의 {{user}}가 "당신"으로 나오지 않게)
+  if (data.defaultPersonaId && !loadSettings().defaultPersonaId && (data.personas || []).some((p) => p.id === data.defaultPersonaId)) {
+    saveSettings({ defaultPersonaId: data.defaultPersonaId });
+  }
   // 대화 기록: 합치기. 메시지는 모두 넣고(같은 id는 같은 메시지), 대화방과 기억은 더 최근 것만 바꾼다.
   // 폰에서만 이어 간 대화는 지우지 않는다 (같은 대화방이면 PC 쪽이 더 최근일 때 PC의 진행 위치로 맞춘다).
   let chats = 0;

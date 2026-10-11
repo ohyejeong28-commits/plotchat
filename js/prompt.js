@@ -78,7 +78,8 @@ export function styleValue(style, key) {
 // chat: 대화별 설정(선택지 사용 여부), rewrite: "달라지면 좋을 점" 요청 { request, previous },
 // summary / userNote: 장기 기억 (path는 요약 뒤의 최근 메시지), unlimited: 언리밋 대화인지
 // voiceFrom: 이 대화의 전체 줄기 (요약으로 밀려난 앞부분까지 포함해 인물별 말투 예시를 뽑는다)
-export function buildSystem(plot, persona, path, { chat, rewrite, summary, userNote, unlimited, voiceFrom } = {}) {
+// traits: 대화에서 알게 된 인물별 특징 (memory.js가 기억 정리 때 쌓는다)
+export function buildSystem(plot, persona, path, { chat, rewrite, summary, userNote, unlimited, voiceFrom, traits } = {}) {
   const style = plot.style || {};
   const user = persona?.name || "사용자";
   const names = plot.characters.map((c) => c.name).filter(Boolean);
@@ -116,7 +117,7 @@ ${rules.map((r) => "- " + r).join("\n")}
 ${chatModeRule(unlimited)}`;
   text += buildContext(plot, persona, path, { summary, personaLast: true });
   text += voiceSection(plot, voiceFrom, persona?.name);
-  text += rememberSection(persona, userNote);
+  text += rememberSection(persona, userNote, traits);
 
   // 제타처럼 말하는 주체별로 나눠 쓰게 한다 (채팅 화면에서 내레이션 / 인물별 말풍선으로 보여 준다)
   text += `
@@ -251,16 +252,18 @@ ${rows.join("\n")}`;
 }
 
 // 장기 기억 요약 요청: [새 대화]에서 일어난 일만 요약한다 (이전 요약은 이해용 참고, 덧붙이기는 memory.js가 한다)
-export function buildSummaryRequest(plot, persona, previous, messages) {
+// knownTraits: 이미 알고 있는 특징 (같은 걸 다시 적지 않게 알려 준다)
+export function buildSummaryRequest(plot, persona, previous, messages, knownTraits = "") {
   const user = persona?.name || "사용자";
   const system = `너는 롤플레이 대화를 장기 기억용으로 정리하는 요약가다. [새 대화]에서 일어난 일만 정리한다. [이전 요약]은 앞 이야기를 이해하는 데만 참고하고 다시 쓰지 않는다.
 - 줄거리 흐름, 중요한 사건, 인물 관계와 감정 변화, 약속·비밀·복선, 장소와 시간의 변화, ${user}에 대해 알게 된 사실을 빠짐없이 남긴다.
 - 사소한 묘사와 반복은 줄인다. 일어난 순서대로, 과거형의 짧은 항목(-)으로 쓴다. 1500자를 넘기지 않는다.
+- 그다음 [알게 된 특징] 항목을 두고, [새 대화]에서 새로 드러난 인물별(${user} 포함) 성격, 습관, 말버릇, 좋아하는 것과 싫어하는 것, 약점, 비밀, 서로에 대한 속마음과 태도를 '- 이름: 특징, 특징' 한 줄씩 적는다. 기본 설정과 [이미 알고 있는 특징]에 있는 것, 한 번뿐인 일시적인 감정은 적지 않는다. 새로 드러난 게 없으면 이 항목은 비운다.
 - 맨 끝에 [인물 상태] 항목을 따로 두고, 주요 인물마다 한 줄씩 [새 대화]가 끝난 시점의 말투(존댓말/반말, 자주 쓰는 어미), ${user}를 부르는 호칭, ${user}와의 관계 단계와 감정을 적는다.
 - 등장인물: ${plot.characters.map((c) => c.name).filter(Boolean).join(", ")}. 사용자 캐릭터: ${user}.
 - 요약만 출력한다.`;
   const transcript = messages.map((m) => `${m.role === "user" ? user : "AI"}: ${fillVars(m.content, plot, persona)}`).join("\n\n");
-  const content = `[이전 요약]\n${previous?.trim() || "(없음)"}\n\n[새 대화]\n${transcript}`;
+  const content = `[이전 요약]\n${previous?.trim() || "(없음)"}\n\n[이미 알고 있는 특징]\n${knownTraits?.trim() || "(없음)"}\n\n[새 대화]\n${transcript}`;
   return { system: fillVars(system, plot, persona), content };
 }
 
@@ -270,6 +273,15 @@ export function buildCompressRequest(events) {
 - 오래된 사건일수록 더 짧게 합치되, 일어난 순서와 중요한 사실(관계 변화, 약속, 비밀, 복선, 장소 이동)은 지우지 않는다.
 - 최근 사건은 자세히 남긴다. 과거형의 짧은 항목(-)으로만 출력한다.`;
   return { system, content: events };
+}
+
+// 특징 노트가 길어졌을 때: 인물별로 합치고 겹치는 것을 줄인다 (서로 어긋나면 나중 것을 남긴다)
+export function buildTraitsCompressRequest(traits) {
+  const system = `너는 롤플레이 인물 노트를 정리하는 편집자다. 아래 인물별 특징 목록을 1500자 이내로 정리한다.
+- 같은 인물의 특징은 한 줄로 모으고, 겹치거나 비슷한 것은 하나로 합친다. 서로 어긋나면 아래쪽(나중) 것을 남긴다.
+- 성격, 습관, 말버릇, 호불호, 약점, 비밀, 서로에 대한 태도처럼 오래 가는 특징만 남긴다.
+- '- 이름: 특징, 특징' 형식으로만 출력한다.`;
+  return { system, content: traits };
 }
 
 export const SUGGEST_REQUEST = "(지금은 내 차례야. 위 형식대로 내가 할 만한 다음 행동 3가지를 추천해 줘.)";
@@ -301,12 +313,14 @@ export function choicesOn(plot, chat) {
 
 // 설정 부분 (세계관, 캐릭터, 사용자 캐릭터, 상황 예시, 장기 기억, 유저노트, 이번 장면에 걸린 설정집)
 // 맨 끝에 두는 "항상 기억할 것": 유저 설명과 유저노트 (답변 지시문용)
-function rememberSection(persona, userNote) {
+function rememberSection(persona, userNote, traits) {
   const parts = [];
   if (persona) {
     parts.push(`[사용자 캐릭터: ${persona.name}] 사용자는 '${persona.name}'(으)로 이야기에 참여한다. 아래 설정을 늘 기억하고 그에 맞게 대한다.
 ${persona.description?.trim() || `이름: ${persona.name}`}`);
   }
+  if (traits?.trim()) parts.push(`[대화에서 알게 된 특징] 지금까지 대화에서 드러난 인물별 성격, 습관, 호불호, 약점, 서로에 대한 태도다. 설정과 함께 늘 반영한다.
+${traits.trim()}`);
   if (userNote?.trim()) parts.push(`[유저노트] 사용자가 꼭 기억해 달라고 적어 둔 내용이다. 항상 반영한다.
 ${userNote.trim()}`);
   return parts.length ? `
@@ -316,7 +330,7 @@ ${parts.join("\n\n")}` : "";
 }
 
 // personaLast: 유저 설명과 유저노트를 여기서 빼고 지시문 맨 끝(rememberSection)에 둔다
-function buildContext(plot, persona, path, { summary, userNote, personaLast = false } = {}) {
+function buildContext(plot, persona, path, { summary, userNote, traits, personaLast = false } = {}) {
   let text = "";
   if (plot.world?.trim()) {
     text += `
@@ -359,6 +373,13 @@ ${summary.trim()}`;
 
 [유저노트] 사용자가 꼭 기억해 달라고 적어 둔 내용이다. 항상 반영한다.
 ${userNote.trim()}`;
+  }
+
+  if (traits?.trim() && !personaLast) {
+    text += `
+
+[대화에서 알게 된 특징] 지금까지 대화에서 드러난 인물별 특징이다.
+${traits.trim()}`;
   }
 
   const lore = matchLore(plot, path);

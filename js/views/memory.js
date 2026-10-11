@@ -17,7 +17,7 @@ export function initMemory() {
     const latest = await getMemory(ctx.chat.id);
     const summary = $("memorySummary").value.trim();
     // 요약을 모두 지우면 처음부터 다시 정리하도록 기준점도 지운다
-    await saveMemory({ ...latest, userNote: $("userNote").value.trim(), summary, upToId: summary ? latest.upToId : null });
+    await saveMemory({ ...latest, userNote: $("userNote").value.trim(), summary, traits: $("memoryTraits").value.trim(), upToId: summary ? latest.upToId : null });
     back("chats");
   });
   $("memoryRebuild").addEventListener("click", rebuild);
@@ -26,7 +26,7 @@ export function initMemory() {
     if (!apiKey || !model) return setInfo("마이페이지에서 AI 연결을 먼저 해 주세요.", true);
     // 화면에서 고친 내용(유저노트, 요약)을 먼저 저장한 뒤 그걸 바탕으로 정리한다
     const latest = await getMemory(ctx.chat.id);
-    await saveMemory({ ...latest, userNote: $("userNote").value.trim(), summary: $("memorySummary").value.trim() });
+    await saveMemory({ ...latest, userNote: $("userNote").value.trim(), summary: $("memorySummary").value.trim(), traits: $("memoryTraits").value.trim() });
     $("memoryRefresh").disabled = true;
     setInfo("정리하는 중…");
     try {
@@ -47,7 +47,7 @@ async function rebuild() {
   if (!apiKey) return setInfo("마이페이지에서 AI 연결을 먼저 해 주세요.", true);
   if (!confirm("지금까지의 요약을 지우고 대화 처음부터 다시 정리할까요?\n대화가 길면 몇 분 걸리고 AI를 여러 번 불러요. 유저노트는 그대로예요.")) return;
   const old = await getMemory(ctx.chat.id);
-  await saveMemory({ ...old, userNote: $("userNote").value.trim(), summary: "", upToId: null, updatedAt: Date.now() });
+  await saveMemory({ ...old, userNote: $("userNote").value.trim(), summary: "", traits: "", upToId: null, updatedAt: Date.now() });
   $("memoryRebuild").disabled = $("memoryRefresh").disabled = $("memorySave").disabled = true;
   try {
     for (let round = 0; round < 100; round++) {
@@ -82,6 +82,7 @@ async function openMemory(plotId, chatId) {
 function render(message) {
   const { summary, summarizedCount, recent } = memoryWindow(ctx.memory, ctx.path);
   $("memorySummary").value = summary;
+  $("memoryTraits").value = ctx.memory.traits || "";
   updateNoteCount();
   if (message) return setInfo(message);
   if (summarizedCount) {

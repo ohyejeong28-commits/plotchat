@@ -14,7 +14,7 @@
 ::-webkit-scrollbar{width:8px;height:8px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:8px;}
-html,body{height:100%;margin:0;background:#000;overflow:hidden;overscroll-behavior:none;}
+html,body{height:100%;margin:0;background:#181818;overflow:hidden;overscroll-behavior:none;}
 html{-webkit-text-size-adjust:100%;}
 body{color:var(--ink);font-family:"Pretendard","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
   font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
