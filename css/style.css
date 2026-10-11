@@ -33,7 +33,7 @@ body.keyboard-open .chat-input,body.keyboard-open .suggest-panel,body.keyboard-o
 
 /* 아래 탭 바: 제타처럼 배경과 같은 색에 위쪽 얇은 선만 (둥근 판처럼 떠 보이지 않게). 아래 홈 바 여백은 조금 줄인다 */
 #bottomNav{display:flex;background:var(--bg);border-top:1px solid #262628;
-  padding:6px 0 max(6px, calc(env(safe-area-inset-bottom) - 8px));}
+  padding:2px 0 max(6px, calc(env(safe-area-inset-bottom) - 3px));}
 body.full #bottomNav{display:none;}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;padding:4px 0;
   color:#6f6f6f;font-size:11px;font-weight:600;cursor:pointer;}
@@ -372,24 +372,24 @@ select:disabled{color:var(--ink-dim);}
 /* 입력 줄 */
 .chat-notice{margin:0 16px 8px;padding:8px 12px;border-radius:10px;background:rgba(255,77,79,.12);color:var(--err);font-size:14px;}
 .chat-notice.info{background:rgba(165,139,255,.12);color:var(--accent-text);}
-.chat-input{display:flex;align-items:flex-end;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line);}
+.chat-input{display:flex;align-items:flex-end;gap:6px;padding:8px 8px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line);}
 #view-chat.suggesting .chat-input{padding-bottom:8px;} /* 추천 패널이 아래 여백을 가진다 */
-.side-btn{flex:none;display:flex;flex-direction:column;align-items:center;gap:1px;width:40px;padding:0;background:none;color:var(--ink-2);}
-.side-ico{width:32px;height:32px;border-radius:50%;background:#3a3a3a;display:grid;place-items:center;}
-.side-ico svg{width:18px;height:18px;}
-.side-ico .bolt{fill:#eee;}
+/* 제타처럼: 입력칸(36px)과 같은 높이 안에 원을 가운데 두고, 글자는 원 아래쪽에 겹친다 */
+.side-btn{flex:none;position:relative;width:32px;height:36px;padding:0;background:none;color:#eee;}
+.side-ico{position:absolute;left:0;top:2px;width:32px;height:32px;border-radius:50%;background:#2a2a2a;display:grid;place-items:center;}
+.side-ico svg{width:16px;height:16px;}
+.side-ico .bolt{fill:#e8e8e8;stroke:#e8e8e8;stroke-width:1.2;stroke-linejoin:round;}
 .side-ico .close{display:none;stroke:#eee;stroke-width:2.2;fill:none;stroke-linecap:round;}
 .side-btn.open .bolt{display:none;}
 .side-btn.open .close{display:block;}
-.side-label{font-size:10px;font-weight:600;}
+.side-label{position:absolute;left:-6px;right:-6px;bottom:0;font-size:10px;line-height:10px;font-weight:600;text-align:center;}
 .side-btn.open .side-label{display:none;}
-.side-btn.open{margin-bottom:10px;} /* ✕를 입력칸 가운데 높이에 */
-.input-pill{flex:1;min-width:0;display:flex;align-items:flex-end;margin-bottom:6px;background:#2a2a2a;border-radius:20px;padding:2px 4px 2px 16px;}
-.input-pill textarea{flex:1;min-width:0;max-height:160px;overflow-y:hidden;resize:none;border:0;background:transparent;padding:8px 0;font-size:15px;line-height:1.28;letter-spacing:-.3px;}
-.input-pill .icon-btn{height:35px;padding:0 8px;display:grid;place-items:center;} /* 한 줄 입력칸 높이와 같게: 가운데 정렬 */
-.input-pill .icon-btn svg{width:18px;height:18px;stroke:#bbb;}
-.send-btn{flex:none;width:32px;height:32px;margin-bottom:9px;padding:0;border-radius:50%;background:#6728ff;display:grid;place-items:center;}
-.send-btn svg{width:15px;height:15px;fill:#fff;}
+.input-pill{flex:1;min-width:0;display:flex;align-items:flex-end;background:#2a2a2a;border-radius:18px;padding:2px 2px 2px 12px;}
+.input-pill textarea{flex:1;min-width:0;max-height:160px;overflow-y:hidden;resize:none;border:0;background:transparent;padding:6px 0;font-size:15px;line-height:20px;letter-spacing:-.3px;}
+.input-pill .icon-btn{height:32px;padding:0 6px;display:grid;place-items:center;} /* 한 줄 입력칸 높이와 같게: 가운데 정렬 */
+.input-pill .icon-btn svg{width:18px;height:18px;stroke:#ddd;}
+.send-btn{flex:none;width:32px;height:32px;margin-bottom:2px;padding:0;border-radius:50%;background:#6728ff;display:grid;place-items:center;}
+.send-btn svg{width:22px;height:22px;fill:#fff;stroke:#fff;stroke-width:1.5;stroke-linejoin:round;}
 .send-btn.stop{background:var(--surface-3);}
 /* 비어 있을 때 ▶는 턴 넘기기 (제타처럼 같은 보라색) */
 
