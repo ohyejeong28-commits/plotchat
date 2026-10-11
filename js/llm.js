@@ -2,6 +2,8 @@
 // 대화 형식: [{ role: "user" | "assistant", content: "..." }]
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
 
+const SAFETY_CATEGORIES = ["HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_HATE_SPEECH", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "HARM_CATEGORY_DANGEROUS_CONTENT"];
+
 // 대화용이 아닌 모델(음성, 이미지, 임베딩 등)은 목록에서 뺀다
 const NON_CHAT = /tts|image|audio|live|embed|robotics|computer|veo|imagen|aqa|native|transcribe/i;
 
@@ -24,7 +26,8 @@ export async function listModels(apiKey) {
 }
 
 // 답변을 조각조각 받아 onText로 넘기고, 끝나면 전체 답변을 돌려준다
-export async function streamChat({ apiKey, model, system, messages, onText, signal }) {
+// unlimited: 언리밋 대화면 Gemini의 조절 가능한 안전 필터를 끈다 (구글이 항상 막는 내용은 그대로 막힌다)
+export async function streamChat({ apiKey, model, system, messages, onText, signal, unlimited = false }) {
   // Gemini는 대화가 user로 시작하고 user/model이 번갈아 나와야 안전하다.
   // 같은 쪽 메시지가 연달아 있으면 하나로 합치고, 캐릭터 인트로로 시작하면 앞에 시작 신호를 넣는다.
   const contents = [];
@@ -38,6 +41,8 @@ export async function streamChat({ apiKey, model, system, messages, onText, sign
 
   const body = { contents };
   if (system) body.systemInstruction = { parts: [{ text: system }] };
+  // (Gemma는 이 설정을 받는지 확인하지 못해서 Gemini 모델에만 붙인다)
+  if (unlimited && /gemini/i.test(model)) body.safetySettings = SAFETY_CATEGORIES.map((category) => ({ category, threshold: "BLOCK_NONE" }));
 
   const res = await fetch(`${BASE}/${model}:streamGenerateContent?alt=sse`, {
     method: "POST",
@@ -75,7 +80,13 @@ export async function streamChat({ apiKey, model, system, messages, onText, sign
       if (cand?.finishReason === "SAFETY" || cand?.finishReason === "PROHIBITED_CONTENT") blocked = cand.finishReason;
     }
   }
-  if (!full && blocked) throw new Error(`안전 필터 때문에 답변이 막혔어요 (${blocked}).`);
+  if (!full && blocked) throw new Error(`구글 안전 필터에 막혔어요 (${blocked}). ↻로 다시 만들거나 표현을 조금 바꿔 보세요.`);
+  if (blocked) {
+    // 쓰다가 필터에 걸려 끊김: 받은 만큼은 partial로 넘긴다
+    const err = new Error(`구글 안전 필터에 걸려 답변이 중간에 끊겼어요 (${blocked}). ↻로 다시 만들어 보세요.`);
+    err.partial = full;
+    throw err;
+  }
   return full;
 }
 
@@ -98,6 +109,7 @@ async function apiError(res) {
   }
   if (res.status === 403) return withStatus(new Error("이 키로는 쓸 수 없는 기능이에요. " + message), 403);
   if (res.status === 404) return withStatus(new Error("이 모델은 지금 쓸 수 없어요. 다른 모델을 골라 보세요."), 404);
+  if (res.status >= 500) return withStatus(new Error("AI 서버가 지금 붐벼요. 잠시 후 다시 해 주세요."), res.status);
   return withStatus(new Error(`오류 ${res.status}: ${message || res.statusText}`), res.status);
 }
 

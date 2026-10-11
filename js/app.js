@@ -12,6 +12,7 @@ import { initSaves } from "./views/saves.js";
 import { initMemory } from "./views/memory.js";
 import { initBackup } from "./views/backup.js";
 import { initOverlays, showToast } from "./ui.js";
+import { initViewport } from "./viewport.js";
 import { isDesktop, markDirty, receiveFromPC } from "./sync.js";
 import { receivedText } from "./views/backup.js";
 
@@ -31,6 +32,7 @@ initSaves();
 initMemory();
 initBackup();
 initOverlays();
+initViewport();
 
 go(loadSettings().apiKey ? "home" : "my");
 

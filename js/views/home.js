@@ -2,6 +2,8 @@
 import { listPlots } from "../plots.js";
 import { listChats } from "../chats.js";
 import { paintCover, formatCount } from "../render.js";
+import { fillVars } from "../prompt.js";
+import { defaultPersona } from "../personas.js";
 import { register, go, showView } from "../router.js";
 
 const $ = (id) => document.getElementById(id);
@@ -13,6 +15,7 @@ export function initHome() {
 
 async function openHome() {
   const plots = await listPlots();
+  const me = await defaultPersona(); // 소개 글의 {{user}}에 넣을 이름
   const grid = $("plotGrid");
   grid.innerHTML = "";
   for (const plot of plots) {
@@ -26,7 +29,7 @@ async function openHome() {
     paintCover(card.querySelector(".cover"), plot);
     card.querySelector(".count-badge span").textContent = formatCount(chats.length);
     card.querySelector(".card-title").textContent = plot.title;
-    card.querySelector(".card-desc").textContent = plot.description;
+    card.querySelector(".card-desc").textContent = fillVars(plot.description, plot, me);
     card.querySelector(".card-tags").textContent = plot.tags.map((t) => "#" + t).join(" ");
     card.querySelector(".card-sub").textContent = plot.characters.map((c) => c.name).filter(Boolean).join(", ");
     card.addEventListener("click", () => go("plot", plot.id));

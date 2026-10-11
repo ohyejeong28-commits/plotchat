@@ -2,7 +2,7 @@
   font-weight:45 920;font-display:swap;}
 
 :root{
-  --bg:#141414; --surface:#222; --surface-2:#2c2c2c; --surface-3:#3a3a3a;
+  --bg:#151516; --surface:#222; --surface-2:#2c2c2c; --surface-3:#3a3a3a;
   --line:#262626; --border:#3a3a3a;
   --ink:#f5f5f5; --ink-2:#cfcfcf; --ink-dim:#9b9b9b; --ink-faint:#6f6f6f;
   --accent:#6b2cf5; --accent-hover:#7b42ff; --accent-soft:#2a2140; --accent-line:#6d4ff0; --accent-text:#a58bff;
@@ -14,13 +14,19 @@
 ::-webkit-scrollbar{width:8px;height:8px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:8px;}
-html,body{height:100%;margin:0;background:#000;}
+html,body{height:100%;margin:0;background:#000;overflow:hidden;overscroll-behavior:none;}
+html{-webkit-text-size-adjust:100%;}
 body{color:var(--ink);font-family:"Pretendard","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
   font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
 
-/* 가운데 모바일 폭 기둥 (제타 웹과 같은 구성) */
-#app{position:relative;max-width:var(--col);height:100%;margin:0 auto;background:var(--bg);display:flex;flex-direction:column;
+/* 가운데 모바일 폭 기둥 (제타 웹과 같은 구성).
+   위치와 높이는 키보드 위로 보이는 영역에 맞춘다 (viewport.js가 --app-top, --app-height를 정한다) */
+#app{position:fixed;left:0;right:0;top:var(--app-top,0px);height:var(--app-height,100%);max-width:var(--col);margin:0 auto;
+  background:var(--bg);display:flex;flex-direction:column;
   padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);}
+/* 키보드가 열려 있으면 아래 홈 바 여백과 탭 바를 없애 입력칸이 키보드 바로 위에 붙게 한다 */
+body.keyboard-open #bottomNav{display:none;}
+body.keyboard-open .chat-input,body.keyboard-open .suggest-panel,body.keyboard-open .del-foot{padding-bottom:8px !important;}
 #views{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;}
 .view{display:none;padding:0 16px 32px;}
 .view.active{display:block;}
@@ -131,7 +137,7 @@ select:disabled{color:var(--ink-dim);}
 .my-plot-list{display:grid;gap:10px;}
 .my-plot{display:flex;gap:12px;align-items:center;width:100%;padding:10px;border-radius:14px;background:var(--surface);text-align:left;}
 .my-plot:hover{background:#282828;}
-.my-plot .thumb{width:60px;height:80px;border-radius:10px;flex:none;display:grid;place-items:center;font-weight:800;font-size:24px;
+.my-plot .thumb{--h:250;width:60px;height:80px;border-radius:10px;flex:none;display:grid;place-items:center;font-weight:800;font-size:24px;
   background:hsl(var(--h) 30% 26%) center/cover no-repeat;}
 .my-plot .meta{flex:1;min-width:0;}
 .my-plot .t{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -143,7 +149,7 @@ select:disabled{color:var(--ink-dim);}
 
 /* 대화 탭: 썸네일 + 이름 + 미리보기 한 줄 */
 .recent{display:flex;gap:14px;align-items:center;width:100%;padding:10px 0;background:none;border-radius:0;text-align:left;}
-.recent .thumb{width:54px;height:64px;flex:none;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:22px;
+.recent .thumb{--h:250;width:54px;height:64px;flex:none;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:22px;
   background:hsl(var(--h) 30% 26%) center/cover no-repeat;}
 .recent .meta{flex:1;min-width:0;}
 .recent .name{font-weight:700;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -157,16 +163,48 @@ select:disabled{color:var(--ink-dim);}
 .plot-cover::after{content:"";position:absolute;inset:0;
   background:linear-gradient(to bottom,rgba(20,20,20,.45) 0%,rgba(20,20,20,0) 22%,rgba(20,20,20,0) 48%,var(--bg) 100%);}
 .icon-btn.over{position:absolute;top:10px;left:10px;z-index:2;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.35);}
+.icon-btn.over.right{left:auto;right:10px;}
+.icon-btn.over.right svg{fill:#fff;stroke:none;}
 .plot-cover-text{position:absolute;left:16px;right:16px;bottom:6px;z-index:2;font-size:15px;}
 .plot-cover-text h1{margin:0 0 4px;font-size:24px;font-weight:800;}
 .plot-cover-text p{margin:0;color:#ddd;}
 .plot-body{padding:10px 16px 32px;}
 .plot-body .tags{margin-bottom:16px;}
-.cast{display:flex;gap:16px;overflow-x:auto;margin-bottom:18px;}
-.cast-item{display:flex;flex-direction:column;align-items:center;gap:6px;flex:none;font-size:13px;color:var(--ink-2);}
-.cast-item .avatar{width:56px;height:56px;font-size:20px;}
-.plot-subactions{margin-top:10px;}
-.plot-subactions button{flex:1;}
+/* 플롯 프로필: 소개 / 캐릭터 카드 / 인트로 (제타처럼 길면 접기) */
+.plot-sec[hidden]{display:none;}
+.plain-text{white-space:pre-wrap;word-break:break-word;}
+.memory-rebuild{display:block;margin:4px 0 14px auto;font-size:13px;color:var(--ink-dim);text-decoration:underline;}
+.plain-text hr.soft{margin:12px 0;border:0;border-top:1px solid rgba(255,255,255,.15);}
+.plain-text .label{display:inline-block;padding:1px 8px;border-radius:6px;background:rgba(255,255,255,.08);font-weight:600;color:#fff;}
+.plain-text em{color:#bdbdbd;}
+.fold-box{position:relative;}
+.fold{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden;font-size:15px;line-height:1.6;color:#d6d6d6;}
+.fold.open{display:block;}
+.fold-btn{display:block;margin-top:6px;padding:0;background:none;font-size:14px;color:var(--ink-dim);text-decoration:underline;}
+.fold-btn[hidden]{display:none;}
+.char-cards{display:grid;gap:12px;}
+.char-card{padding:20px;border-radius:16px;background:#212122;}
+.char-card .char-img{display:block;width:148px;height:148px;padding:0;border-radius:8px;font-size:48px;background-size:cover;background-position:center;}
+.char-name{margin:14px 0 6px;font-size:17px;font-weight:700;}
+.intro-preview .intro-name{display:block;margin:10px 0 2px;font-size:13px;font-weight:600;color:var(--ink-dim);}
+.intro-preview p{margin:0;}
+.intro-preview p + p{margin-top:.6em;}
+.char-viewer{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;background:#151516;padding:0 16px calc(16px + env(safe-area-inset-bottom));overflow-y:auto;}
+.char-viewer[hidden]{display:none;}
+.char-viewer-head{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
+.char-viewer-head h1{margin:0;font-size:17px;font-weight:700;}
+.icon-btn-space{width:40px;}
+.char-viewer-img{flex:1;display:grid;place-items:center;margin:16px -16px 0;}
+.char-viewer-img img{width:100%;max-height:70vh;object-fit:contain;}
+/* 아래 고정 바 (제타: 왼쪽 정사각 버튼 + 보라 큰 버튼) */
+.plot-bar{position:sticky;bottom:0;z-index:5;display:flex;gap:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  background:var(--bg);border-top:1px solid var(--line);}
+.plot-bar-side{flex:none;width:60px;height:60px;padding:0;border-radius:10px;background:#6728ff;display:grid;place-items:center;}
+.plot-bar-side[hidden]{display:none;}
+.plot-bar-side svg{width:24px;height:24px;stroke:#fff;stroke-width:2.2;fill:none;stroke-linecap:round;}
+.plot-bar-main{flex:1;height:60px;border-radius:10px;background:#6728ff;color:#fff;font-size:17px;font-weight:600;}
+.plot-bar-main:hover,.plot-bar-side:hover{background:#7a42ff;}
+.intro-chat{display:flex;flex-direction:column;gap:14px;}
 .chat-list{display:grid;gap:8px;}
 .chat-row{display:flex;background:var(--surface);border-radius:12px;overflow:hidden;}
 .chat-row-open{flex:1;min-width:0;text-align:left;background:none;border-radius:0;padding:12px 14px;}
@@ -244,39 +282,59 @@ select:disabled{color:var(--ink-dim);}
 #view-chat.active{display:flex;flex-direction:column;height:100%;padding:0;}
 .chat-head{display:flex;align-items:center;gap:6px;height:54px;padding:0 8px;border-bottom:1px solid var(--line);}
 .chat-name{flex:1;min-width:0;font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.model-pill{appearance:none;width:auto;max-width:150px;padding:6px 30px 6px 14px;border:0;border-radius:999px;background-color:#3a3a3a;
+.model-pill{appearance:none;width:auto;max-width:180px;padding:6px 30px 6px 14px;border:0;border-radius:999px;background-color:#3a3a3a;
   font-weight:800;font-style:italic;font-size:14px;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ddd' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 10px center;background-size:14px;}
 .model-pill[hidden]{display:none;}
 
 .chat-main{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;}
-.chat-log{flex:1;min-height:0;overflow-y:auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:18px;}
+.chat-log{flex:1;min-height:0;overflow-y:auto;padding:14px 12px 8px;display:flex;flex-direction:column;gap:16px;}
 .float-btn{position:absolute;right:14px;bottom:12px;width:44px;height:44px;padding:0;border-radius:50%;background:#3a3a3a;
   display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.4);}
 .float-btn[hidden]{display:none;}
 .float-btn svg{width:22px;height:22px;stroke:#eee;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
 
+/* 언리밋: 제타처럼 파랑→보라 배지와 ✳ 표시 */
+.unlimited-mark{display:inline-grid;place-items:center;width:18px;height:18px;margin-right:6px;border-radius:5px;vertical-align:-3px;
+  background:linear-gradient(135deg,#3f6bff,#a34dff);}
+.unlimited-mark svg,.badge-unlimited svg{width:12px;height:12px;stroke:#fff;stroke-width:2.8;fill:none;stroke-linecap:round;}
+.plot-badges{display:flex;gap:6px;margin:12px 0 8px;}
+.plot-badges[hidden]{display:none;}
+.badge-unlimited{display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 6px;border-radius:6px;font-size:13px;font-weight:700;color:#fff;
+  background:linear-gradient(90deg,#3f6bff,#a34dff);}
+.mode-pick{display:grid;gap:8px;margin-bottom:14px;}
+.mode-pick button{display:block;width:100%;min-width:0;white-space:normal;text-align:left;padding:14px 16px;border-radius:14px;background:var(--surface-2);border:1px solid transparent;color:var(--ink);}
+.mode-pick button b{display:block;font-size:15px;}
+.mode-pick button small{display:block;margin-top:3px;font-size:12.5px;font-weight:500;color:var(--ink-dim);}
+.mode-pick button.on{background:var(--accent-soft);border-color:var(--accent-line);}
+.mode-pick button{position:relative;padding-right:48px;}
+.mode-pick button.on::after{content:"✓";position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:18px;font-weight:700;color:#fff;}
+.mode-pick + .hint{margin:0;font-size:13px;}
+
 /* 메시지: 내 것은 오른쪽 보라 말풍선, 캐릭터는 내레이션 / 인물별 말풍선 */
 .turn{display:flex;flex-direction:column;gap:12px;}
-.turn-content{display:flex;flex-direction:column;gap:12px;}
-.bubble{padding:12px 16px;border-radius:18px;word-break:break-word;line-height:1.65;font-weight:600;color:#fff;}
-.narr{font-weight:400;font-style:italic;color:#b8b8b8;}
+@media (pointer:coarse){.turn .turn-content{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}}
+.turn-content{display:flex;flex-direction:column;gap:14px;}
+.bubble{padding:8px 12px;border-radius:16px;word-break:break-word;font-size:15px;line-height:1.28;font-weight:400;color:#fff;letter-spacing:-.3px;}
+.narr{font-weight:400;font-style:italic;color:rgba(255,255,255,.7);}
+.bubble p,.narrator-text p,.suggest-card p{margin:0;}
+.bubble p + p,.narrator-text p + p,.suggest-card p + p{margin-top:1.28em;}
 .turn.me .turn-content{align-items:flex-end;gap:6px;}
 .me-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--accent-text);}
-.me-head .avatar{width:34px;height:34px;font-size:13px;}
-.turn.me .bubble{max-width:85%;background:#5b3fd6;border-top-right-radius:6px;}
-.turn.me .narr{color:rgba(255,255,255,.82);}
-.seg{display:flex;gap:10px;align-items:flex-start;}
-.seg .avatar{width:40px;height:40px;}
-.seg-body{min-width:0;max-width:86%;}
-.seg-name{font-size:13px;font-weight:600;color:var(--ink-2);margin:2px 0 6px 2px;}
-.seg .bubble{background:#2a2a2a;border-top-left-radius:6px;}
-.narrator{display:flex;gap:10px;padding:0 6px 0 2px;line-height:1.65;}
-.narrator svg{flex:none;width:20px;height:20px;margin-top:3px;stroke:#8a8a8a;stroke-width:2;fill:none;stroke-linecap:round;}
-.narrator-text{min-width:0;font-style:italic;color:#b8b8b8;}
+.me-head .avatar{width:30px;height:30px;font-size:12px;}
+.turn.me .bubble{max-width:calc(100% - 64px);background:#644dd6;border-radius:16px 0 16px 16px;}
+.turn.me .narr{color:rgba(255,255,255,.7);}
+.speaker{display:flex;gap:6px;align-items:flex-start;padding-right:60px;}
+.speaker .avatar{width:32px;height:32px;font-size:13px;}
+.seg-body{min-width:0;}
+.seg-name{font-size:12px;line-height:16px;font-weight:400;color:rgba(255,255,255,.7);margin:0 0 4px;}
+.speaker .bubble{background:#212122;border-radius:0 16px 16px 16px;}
+.narrator{display:flex;gap:8px;padding:0 12px 0 4px;font-size:15px;line-height:1.28;letter-spacing:-.3px;}
+.narrator svg{flex:none;width:16px;height:16px;margin-top:2px;stroke:rgba(255,255,255,.7);stroke-width:2;fill:none;stroke-linecap:round;}
+.narrator-text{min-width:0;font-style:italic;color:rgba(255,255,255,.6);}
 .narrator-text .narr{color:inherit;}
-.model-tag{align-self:flex-end;margin-top:-8px;font-size:11px;font-style:italic;font-weight:700;color:#4d4d4d;}
+.model-tag{align-self:flex-end;margin:-8px 4px 0 0;font-size:11.5px;font-weight:500;color:#555;}
 .turn.enter{animation:rise .32s ease-out;}
 @keyframes rise{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
 .turn.typing .bubble:empty::after{content:"···";color:var(--ink-dim);letter-spacing:2px;animation:blink 1.2s infinite;}
@@ -298,10 +356,10 @@ select:disabled{color:var(--ink-dim);}
 .turn-foot{display:flex;align-items:center;gap:6px;}
 .turn-foot:empty,.turn-foot[hidden]{display:none;}
 .variants{display:flex;align-items:center;gap:2px;font-size:13px;color:var(--ink-dim);}
-.acts{display:flex;gap:8px;margin-left:auto;}
+.acts{display:flex;gap:6px;margin-left:auto;}
 .chat-log.busy .acts,.select-mode .acts{visibility:hidden;}
-.round-act{width:40px;height:40px;padding:0;border-radius:50%;background:none;border:1px solid #3d3d3d;display:grid;place-items:center;}
-.round-act svg{width:19px;height:19px;stroke:#e0e0e0;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+.round-act{width:32px;height:32px;padding:0;border-radius:50%;background:rgba(17,17,18,.3);border:.8px solid rgba(255,255,255,.08);display:grid;place-items:center;}
+.round-act svg{width:16px;height:16px;stroke:#fff;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}
 .round-act:hover:not(:disabled){background:#2a2a2a;}
 .act-text{background:none;padding:2px 8px;font-size:15px;color:var(--ink-dim);}
 .act-text:disabled{opacity:.3;}
@@ -313,32 +371,33 @@ select:disabled{color:var(--ink-dim);}
 /* 입력 줄 */
 .chat-notice{margin:0 16px 8px;padding:8px 12px;border-radius:10px;background:rgba(255,77,79,.12);color:var(--err);font-size:14px;}
 .chat-notice.info{background:rgba(165,139,255,.12);color:var(--accent-text);}
-.chat-input{display:flex;align-items:flex-end;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line);}
-.side-btn{flex:none;display:flex;flex-direction:column;align-items:center;gap:1px;width:44px;padding:0;background:none;color:var(--ink-2);}
-.side-ico{width:38px;height:38px;border-radius:50%;background:#3a3a3a;display:grid;place-items:center;}
-.side-ico svg{width:20px;height:20px;}
+.chat-input{display:flex;align-items:flex-end;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--line);}
+.side-btn{flex:none;display:flex;flex-direction:column;align-items:center;gap:1px;width:40px;padding:0;background:none;color:var(--ink-2);}
+.side-ico{width:32px;height:32px;border-radius:50%;background:#3a3a3a;display:grid;place-items:center;}
+.side-ico svg{width:18px;height:18px;}
 .side-ico .bolt{fill:#eee;}
 .side-ico .close{display:none;stroke:#eee;stroke-width:2.2;fill:none;stroke-linecap:round;}
 .side-btn.open .bolt{display:none;}
 .side-btn.open .close{display:block;}
-.side-label{font-size:10.5px;font-weight:700;}
+.side-label{font-size:10px;font-weight:600;}
 .side-btn.open .side-label{visibility:hidden;}
-.input-pill{flex:1;min-width:0;display:flex;align-items:flex-end;margin-bottom:8px;background:#2a2a2a;border-radius:22px;padding:3px 4px 3px 16px;}
-.input-pill textarea{flex:1;min-width:0;max-height:160px;overflow-y:hidden;resize:none;border:0;background:transparent;padding:8px 0;line-height:1.5;}
-.input-pill .icon-btn svg{width:20px;height:20px;stroke:#bbb;}
-.send-btn{flex:none;width:42px;height:42px;margin-bottom:6px;padding:0;border-radius:50%;background:var(--accent);display:grid;place-items:center;}
-.send-btn svg{width:20px;height:20px;fill:#fff;}
+.input-pill{flex:1;min-width:0;display:flex;align-items:flex-end;margin-bottom:6px;background:#2a2a2a;border-radius:20px;padding:2px 4px 2px 16px;}
+.input-pill textarea{flex:1;min-width:0;max-height:160px;overflow-y:hidden;resize:none;border:0;background:transparent;padding:8px 0;font-size:15px;line-height:1.28;letter-spacing:-.3px;}
+.input-pill .icon-btn{padding:6px 8px;}
+.input-pill .icon-btn svg{width:18px;height:18px;stroke:#bbb;}
+.send-btn{flex:none;width:32px;height:32px;margin-bottom:9px;padding:0;border-radius:50%;background:#6728ff;display:grid;place-items:center;}
+.send-btn svg{width:15px;height:15px;fill:#fff;}
 .send-btn.stop{background:var(--surface-3);}
-.send-btn.skip{background:#3a3a3a;}
-.send-btn.skip svg{fill:#bdbdbd;}
+/* 비어 있을 때 ▶는 턴 넘기기 (제타처럼 같은 보라색) */
 
 /* ⚡ 답변 추천 */
 .suggest-panel{max-height:46%;overflow-y:auto;padding:4px 16px calc(12px + env(safe-area-inset-bottom));background:#1b1b1b;}
 .suggest-panel[hidden]{display:none;}
-.suggest-list{display:grid;gap:10px;padding-top:10px;}
-.suggest-card{text-align:left;white-space:normal;padding:14px 16px;border-radius:16px;background:#2a2a2a;line-height:1.6;font-weight:600;color:#fff;}
-.suggest-card:hover{background:#323232;}
+.suggest-list{display:grid;gap:8px;padding:10px 20px 0;}
+.suggest-card{text-align:left;white-space:normal;padding:12px 16px;border-radius:16px 0 16px 16px;background:rgba(255,255,255,.05);font-size:14px;line-height:1.4;font-weight:400;color:#fff;letter-spacing:-.2px;}
+.suggest-card:hover{background:rgba(255,255,255,.09);}
 .suggest-card.loading{display:grid;place-items:center;min-height:64px;}
+.suggest-card.writing{opacity:.8;}
 .spinner{width:22px;height:22px;border:2px solid #555;border-top-color:#ddd;border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .suggest-foot{display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--ink-dim);font-size:14px;}

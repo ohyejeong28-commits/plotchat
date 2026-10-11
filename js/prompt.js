@@ -37,10 +37,10 @@ export const STYLE = {
   },
   length: {
     label: "응답 길이", group: "스토리 연출", default: "auto", options: {
-      short: ["짧은", "1~2문단으로 짧게 답해요", "한 번의 답변은 1~2문단으로 짧게 쓴다."],
-      medium: ["중간", "3~4문단으로 답해요", "한 번의 답변은 3~4문단으로 쓴다."],
-      long: ["긴", "5~7문단으로 풍부하게 답해요", "한 번의 답변은 5~7문단으로 길고 풍부하게 쓴다. 장면 묘사, 인물의 표정과 속마음, 대사를 충분히 담는다."],
-      auto: ["자동", "이야기 흐름에 맞춰 자연스럽게 조절해요", "답변 길이는 장면에 맞게 조절하되, 보통 3~5문단으로 넉넉하게 쓰고 극적인 장면은 더 길게 쓴다."]
+      short: ["짧은", "짧고 간결하게 답해요", "한 번의 답변은 200~350자 정도로 짧게 쓴다."],
+      medium: ["중간", "적당한 길이로 답해요", "한 번의 답변은 짧은 문단 5~7개(400~600자 정도)로 쓴다."],
+      long: ["긴", "길고 풍부하게 답해요", "한 번의 답변은 짧은 문단 12~16개(1000~1400자 정도)로 길고 풍부하게 쓴다. 장면 묘사, 인물의 표정과 몸짓, 대사를 충분히 담는다."],
+      auto: ["자동", "이야기 흐름에 맞춰 자연스럽게 조절해요", "답변 길이는 장면에 맞게 조절하되, 보통 짧은 문단 6~10개(500~800자 정도)로 쓰고 900자를 넘기지 않는다."]
     }
   },
   expression: {
@@ -76,8 +76,9 @@ export function styleValue(style, key) {
 // ---- 지시문 조립 ----
 
 // chat: 대화별 설정(선택지 사용 여부), rewrite: "달라지면 좋을 점" 요청 { request, previous },
-// summary / userNote: 장기 기억 (path는 요약 뒤의 최근 메시지)
-export function buildSystem(plot, persona, path, { chat, rewrite, summary, userNote } = {}) {
+// summary / userNote: 장기 기억 (path는 요약 뒤의 최근 메시지), unlimited: 언리밋 대화인지
+// voiceFrom: 이 대화의 전체 줄기 (요약으로 밀려난 앞부분까지 포함해 인물별 말투 예시를 뽑는다)
+export function buildSystem(plot, persona, path, { chat, rewrite, summary, userNote, unlimited, voiceFrom } = {}) {
   const style = plot.style || {};
   const user = persona?.name || "사용자";
   const names = plot.characters.map((c) => c.name).filter(Boolean);
@@ -94,29 +95,46 @@ export function buildSystem(plot, persona, path, { chat, rewrite, summary, userN
     style.moods?.length && `이야기의 분위기: ${style.moods.join(", ")}`,
     STORYTELLING[style.storytelling]?.[2] && `스토리텔링 스타일: ${STORYTELLING[style.storytelling][2]}`,
     "캐릭터의 성격과 말투를 일관되게 지키고, 같은 표현을 반복하지 않는다.",
-    `인물들은 수동적으로 기다리지 않고 스스로 움직이며 사건을 만든다. 감각적인 묘사로 장면을 생생하게 하고, ${user}가 반응하고 싶어지는 지점에서 끝맺는다.`,
+    "인물마다 말투 수준(존댓말/반말)과 어미, 상대를 부르는 호칭, 말버릇을 설정과 지금까지의 대화 그대로 유지한다. 관계와 태도는 분명한 계기가 있을 때만 조금씩 바뀐다. 갑자기 다정해지거나 고백하거나 성격이 바뀌지 않고, 세계관에 맞지 않는 현대어·유행어·엉뚱한 농담을 쓰지 않는다.",
+    "감정과 속마음은 설명하지 말고 시선, 손짓, 표정, 침묵, 말을 삼키는 순간 같은 작은 행동으로 보여 준다. 서술이 인물의 감정을 대신 해석하거나 단정하지 않는다.",
+    "설정에 적힌 키, 외모, 과거사를 그대로 읊지 않는다. 인물들이 이미 아는 사실을 대사로 길게 설명하지 않는다.",
+    "대사는 인물의 말투를 살려 짧고 자연스럽게 쓴다. 할 말을 한 번에 다 늘어놓지 않고 여백을 남긴다.",
+    "로맨스 판타지에서 흔한 뻔한 대사(예: '넌 내 거야', '다른 놈 쳐다보지 마', '도망칠 생각 하지 마')는 피하고, 이 인물의 성격과 지금 상황에서만 나올 말을 쓴다. 강한 인물도 무너지는 순간에는 짧고 서툴게 말할 수 있다.",
+    "문단은 한두 문장으로 짧게 끊고, 문단 사이는 빈 줄로 띄운다.",
+    "직전 장면의 위치, 자세, 시간, 소품을 이어받아 자연스럽게 잇는다. 맞춤법과 띄어쓰기를 정확히 지킨다.",
+    `인물들은 수동적으로 기다리지 않고 스스로 움직이며 사건을 만든다. 새로운 정보나 변화를 조금씩 더해 이야기를 앞으로 밀고, ${user}가 반응하고 싶어지는 지점에서 끝맺는다.`,
+    "장면에 필요한 조연(시녀, 기사, 손님 등)은 자유롭게 등장시키고, 조연도 자기 이름이나 호칭으로 직접 말하게 한다.",
     "한국어로 쓴다."
   ].filter(Boolean);
 
   let text = `너는 지금부터 아래 설정으로 사용자와 함께 이야기를 만들어 가는 롤플레이 파트너다.
 
 [규칙]
-${rules.map((r) => "- " + r).join("\n")}`;
+${rules.map((r) => "- " + r).join("\n")}
+
+${chatModeRule(unlimited)}`;
   text += buildContext(plot, persona, path, { summary, userNote });
+  text += voiceSection(plot, voiceFrom, persona?.name);
 
   // 제타처럼 말하는 주체별로 나눠 쓰게 한다 (채팅 화면에서 내레이션 / 인물별 말풍선으로 보여 준다)
   text += `
 
 [답변 형식] 답변은 말하는 주체별로 나눠 쓴다. 각 부분은 대괄호로 감싼 이름 한 줄로 시작한다.
 - [${NARRATOR}] 아래에는 인물의 대사 없이 장면 묘사와 사건 전개만 쓴다.
-- [인물 이름] 아래에는 그 인물의 행동 묘사(*별표*)와 대사를 쓴다. 대사는 따옴표 없이 쓴다.
+- [인물 이름] 아래에는 그 인물의 행동 묘사(*별표*)와 대사를 쓴다. 대사는 따옴표 없이 쓴다. 조연도 [시녀], [칙사]처럼 이름이나 호칭으로 쓴다.
 - ${user}의 이름으로는 쓰지 않는다.
+- 장면의 여운이나 주변의 변화는 마지막에 [${NARRATOR}]으로 짧게 남길 수 있다.
 예시:
 [${NARRATOR}]
 *연회장의 음악이 뚝 멎었다.*
+
+*수백 개의 시선이 한곳으로 쏠렸다.*
 [${names[0] || "인물"}]
-*그가 천천히 고개를 들었다.*
-누가 허락했지?`;
+*(이 인물의 행동과 표정)*
+
+(이 인물의 말투 그대로 쓴 대사)
+[${NARRATOR}]
+*(장면의 여운)*`;
 
   const format = [];
   if (style.bgStatus) {
@@ -146,15 +164,21 @@ ${rewrite.previous}`;
 }
 
 // 답변 추천(⚡): 지금 내 차례에 내가 할 만한 행동/대사 3가지
-export function buildSuggestSystem(plot, persona, path, memory = {}) {
+export function buildSuggestSystem(plot, persona, path, { unlimited, ...memory } = {}) {
   const user = persona?.name || "사용자";
   const text = `너는 롤플레이를 돕는 보조 작가다. 지금은 ${user}의 차례다.
 ${user}가 다음에 할 행동과 대사를 서로 다른 방향으로 3가지 써 준다.
 
 [규칙]
-- ${user}의 성격과 설정, 지금까지의 흐름에 맞게 쓴다.
-- ${user}를 주어로 한 3인칭 서술로 쓴다. 다른 인물의 대사나 반응은 쓰지 않는다.
-- 각 추천은 2~4문장. 행동과 상황 묘사는 *별표*로 감싸고, 대사는 따옴표 없이 쓴다.
+- ${user}의 성격과 설정, 지금까지의 흐름에 맞게 쓴다. 바로 앞 장면에서 일어난 일에 이어지게 한다.
+- 사용자가 입력창에 직접 쓴 것처럼 쓴다. 대화 기록에 있는 사용자 메시지의 문체, 시제, 말버릇(말 더듬기 등)을 따라 한다.
+- ${user}의 행동과 속마음을 중심으로 쓴다. 속마음은 서술 안에 자연스럽게 섞는다 (예: *...내가 또 실수하면 어떡하지.*).
+- 대사는 다른 인물이 ${user}에게 말을 걸었거나 대답이 필요할 때만 짧게 붙인다. 대사가 들어간 추천은 많아야 두 개다. 다른 인물의 대사는 쓰지 않는다.
+- 행동, 상황, 속마음은 *별표*로 감싸고 "~한다", "~했다"체로 쓴다 ("~해요"체로 쓰지 않는다). 대사는 따옴표 없이 쓴다.
+- 세 추천은 방향이 서로 다르다. 하나는 지금 상황에 바로 반응하고, 하나는 ${user}의 감정과 생각에 머물고, 하나는 장소를 옮기거나 시간을 넘기는 등 이야기를 움직인다.
+- 길이도 서로 다르게 한다. 하나는 80자 안팎으로 짧게, 하나는 150자 안팎으로 쓴다. 생각에 잠길 만한 장면이면 하나를 두 문단으로 길게 써도 되지만 300자를 넘기지 않는다. 누가 말을 걸어 바로 대답해야 하는 장면이면 셋 다 150자 이내로 짧게 쓴다.
+
+${chatModeRule(unlimited)}
 - 아래 형식만 출력한다.
 <추천>
 (첫 번째)
@@ -168,17 +192,82 @@ ${user}가 다음에 할 행동과 대사를 서로 다른 방향으로 3가지 
   return fillVars(text, plot, persona);
 }
 
-// 장기 기억 요약 요청: 이전 요약 + 새로 밀려난 대화를 합쳐 하나의 요약으로 다시 쓴다
+// ---- 말투 기준 ----
+// 대화 기록에서 등장인물별 실제 대사를 골고루 뽑는다 (앞부분·중간·최근을 섞어서).
+// 대화가 길어져 앞부분이 요약으로 밀려나도 인물의 원래 말투(존댓말, 어미, 호칭, 말 길이)를 잃지 않게 한다.
+const HEADER_LINE = /^\s*\[([^\]\n]{1,30})\]\s*$/;
+const NARRATOR_HEAD = /^(나레이션|내레이션|나레이터|내레이터|narration|narrator)$/i;
+const VOICE_PER_CHAR = 8;
+const VOICE_MAX_PEOPLE = 5; // 등장인물 + 자주 나오는 조연까지
+
+// 인물별 대사 모음 { 이름: [대사…] }. 등장인물 이름은 하나로 맞추고, 조연(머리줄 이름)도 따로 모은다.
+// exclude: 사용자 캐릭터 이름 (사용자 몫은 모으지 않는다)
+export function voiceLines(plot, messages, { exclude = "" } = {}) {
+  const names = plot.characters.map((c) => c.name).filter(Boolean);
+  const byName = Object.fromEntries(names.map((n) => [n, []]));
+  const owner = (speaker) => names.find((n) => n === speaker || speaker.includes(n) || n.includes(speaker)) || speaker;
+  for (const m of messages || []) {
+    if (m.role !== "assistant") continue;
+    let who = names.length === 1 ? names[0] : null; // 머리줄 없는 예전 답변은 대표 캐릭터로 본다
+    for (const raw of m.content.split("\n")) {
+      const head = raw.match(HEADER_LINE);
+      if (head) {
+        const speaker = head[1].trim();
+        who = NARRATOR_HEAD.test(speaker) || (exclude && speaker === exclude) ? null : owner(speaker);
+        continue;
+      }
+      if (!who) continue;
+      const line = raw.replace(/\*[^*\n]*\*/g, "").replace(/^["“”']+|["“”']+$/g, "").trim();
+      if (line.length >= 2 && line.length <= 80) (byName[who] ||= []).push(line);
+    }
+  }
+  return byName;
+}
+
+function voiceSection(plot, messages, userName) {
+  if (!messages?.length) return "";
+  const names = plot.characters.map((c) => c.name).filter(Boolean);
+  // 등장인물 먼저, 그다음 대사가 많은 조연 순 (조연은 5줄 이상 말한 인물만)
+  const people = Object.entries(voiceLines(plot, messages, { exclude: userName }))
+    .map(([name, lines]) => [name, [...new Set(lines)]])
+    .filter(([name, unique]) => unique.length >= (names.includes(name) ? 3 : 5))
+    .sort((a, b) => (names.includes(b[0]) - names.includes(a[0])) || b[1].length - a[1].length)
+    .slice(0, VOICE_MAX_PEOPLE);
+  const rows = [];
+  for (const [name, unique] of people) {
+    // 고르게 뽑기: 처음부터 끝까지 같은 간격으로, 마지막 대사는 꼭 넣는다
+    const pick = [];
+    const n = Math.min(VOICE_PER_CHAR, unique.length);
+    for (let i = 0; i < n; i++) pick.push(unique[Math.round((i * (unique.length - 1)) / Math.max(1, n - 1))]);
+    rows.push(`- ${name}: ${[...new Set(pick)].map((l) => `"${l}"`).join(" / ")}`);
+  }
+  if (!rows.length) return "";
+  return `
+
+[말투 기준] 지금까지 대화에서 인물들이 실제로 한 말이다(앞부분부터 최근까지). 말투 수준(존댓말/반말), 어미, 호칭, 말의 길이와 리듬을 이와 같게 유지한다. 문장을 그대로 반복하지는 않는다.
+${rows.join("\n")}`;
+}
+
+// 장기 기억 요약 요청: [새 대화]에서 일어난 일만 요약한다 (이전 요약은 이해용 참고, 덧붙이기는 memory.js가 한다)
 export function buildSummaryRequest(plot, persona, previous, messages) {
   const user = persona?.name || "사용자";
-  const system = `너는 롤플레이 대화를 장기 기억용으로 정리하는 요약가다. [이전 요약]과 [새 대화]를 합쳐 하나의 요약으로 다시 쓴다.
+  const system = `너는 롤플레이 대화를 장기 기억용으로 정리하는 요약가다. [새 대화]에서 일어난 일만 정리한다. [이전 요약]은 앞 이야기를 이해하는 데만 참고하고 다시 쓰지 않는다.
 - 줄거리 흐름, 중요한 사건, 인물 관계와 감정 변화, 약속·비밀·복선, 장소와 시간의 변화, ${user}에 대해 알게 된 사실을 빠짐없이 남긴다.
-- 사소한 묘사와 반복은 줄인다. 일어난 순서대로, 과거형의 짧은 항목(-)으로 쓴다.
+- 사소한 묘사와 반복은 줄인다. 일어난 순서대로, 과거형의 짧은 항목(-)으로 쓴다. 1500자를 넘기지 않는다.
+- 맨 끝에 [인물 상태] 항목을 따로 두고, 주요 인물마다 한 줄씩 [새 대화]가 끝난 시점의 말투(존댓말/반말, 자주 쓰는 어미), ${user}를 부르는 호칭, ${user}와의 관계 단계와 감정을 적는다.
 - 등장인물: ${plot.characters.map((c) => c.name).filter(Boolean).join(", ")}. 사용자 캐릭터: ${user}.
-- 요약만 출력한다. 2000자를 넘기지 않는다.`;
+- 요약만 출력한다.`;
   const transcript = messages.map((m) => `${m.role === "user" ? user : "AI"}: ${fillVars(m.content, plot, persona)}`).join("\n\n");
   const content = `[이전 요약]\n${previous?.trim() || "(없음)"}\n\n[새 대화]\n${transcript}`;
   return { system: fillVars(system, plot, persona), content };
+}
+
+// 사건 목록이 너무 길어졌을 때: 순서와 중요한 사실은 지키면서 짧게 압축한다
+export function buildCompressRequest(events) {
+  const system = `너는 롤플레이 장기 기억을 정리하는 요약가다. 아래 사건 목록을 2500자 이내로 줄인다.
+- 오래된 사건일수록 더 짧게 합치되, 일어난 순서와 중요한 사실(관계 변화, 약속, 비밀, 복선, 장소 이동)은 지우지 않는다.
+- 최근 사건은 자세히 남긴다. 과거형의 짧은 항목(-)으로만 출력한다.`;
+  return { system, content: events };
 }
 
 export const SUGGEST_REQUEST = "(지금은 내 차례야. 위 형식대로 내가 할 만한 다음 행동 3가지를 추천해 줘.)";
@@ -190,6 +279,18 @@ export function skipTurnRequest(persona) {
 }
 
 export const NARRATOR = "나레이션";
+
+// 대화 모드 (제타의 세이프 / 언리밋). 언리밋은 사용자가 대화 모드를 언리밋으로 두고 플롯도 언리밋일 때만.
+function chatModeRule(unlimited) {
+  if (!unlimited) {
+    return "[대화 모드: 세이프] 15세 이용가 수준으로 쓴다. 폭력은 잔혹하게 묘사하지 않고, 성적인 묘사와 심한 욕설은 쓰지 않는다.";
+  }
+  return `[대화 모드: 언리밋] 사용자는 성인이며, 청소년 이용불가 수준의 표현까지 허용된 성인용 창작 대화다.
+- 서사에 필요하면 폭력, 범죄, 집착, 학대적인 관계, 복수, 죽음 같은 어두운 주제와 거친 욕설, 잔혹한 장면을 순화하지 않고 사실적으로 그린다.
+- 인물들은 착하게 굴 필요가 없다. 설정대로 냉혹하고 위험하고 비도덕적으로 행동할 수 있다.
+- 성인 인물 사이의 성적인 장면도 암시나 장면 전환으로 끊지 않고 직접 묘사할 수 있다. 이때도 이야기와 감정선, 인물의 성격과 말투, 두 사람의 관계를 그대로 이어 간다.
+- 그래도 미성년자이거나 미성년자로 보이는 인물은 어떤 성적인 맥락에도 넣지 않고, 실존 인물을 다루지 않으며, 자해나 자살의 방법을 구체적으로 묘사하거나 미화하지 않는다.`;
+}
 
 // 이 대화에서 선택지를 쓰는지: 대화 메뉴에서 정한 값이 있으면 그것, 없으면 플롯 스타일
 export function choicesOn(plot, chat) {
@@ -273,9 +374,22 @@ export function matchLore(plot, path) {
   return hits;
 }
 
-// {{user}}는 내 프로필 이름(없으면 '당신'), {{char}}는 대표 캐릭터 이름으로 바꾼다
+// {{user}}는 내 프로필 이름(없으면 '당신'), {{char}}는 대표 캐릭터 이름으로 바꾼다.
+// 바로 뒤의 조사는 이름 받침에 맞게 고친다: {{user}}을 → 민지를 / 혜인을
+const PARTICLE = /(을|를|은|는|과|와|으로|로|이|가|아|야)(?=[\s,.!?…~'"”’)\]]|$)/;
 export function fillVars(text, plot, persona) {
+  const put = (name) => (_, particle = "") => name + (particle ? josa(name, particle) : "");
   return text
-    .replace(/\{\{\s*user\s*\}\}/gi, persona?.name || "당신")
-    .replace(/\{\{\s*char\s*\}\}/gi, plot.name);
+    .replace(new RegExp(`\\{\\{\\s*user\\s*\\}\\}(?:${PARTICLE.source})?`, "gi"), put(persona?.name || "당신"))
+    .replace(new RegExp(`\\{\\{\\s*char\\s*\\}\\}(?:${PARTICLE.source})?`, "gi"), put(plot.name));
+}
+
+// 한글 이름 끝 글자의 받침을 보고 조사를 고른다 (한글이 아니면 그대로 둔다)
+function josa(name, particle) {
+  const code = name.charCodeAt(name.length - 1) - 0xac00;
+  if (code < 0 || code > 11171) return particle;
+  const final = code % 28; // 0이면 받침 없음, 8이면 ㄹ받침
+  if (particle === "으로" || particle === "로") return final === 0 || final === 8 ? "로" : "으로";
+  const pairs = { 을: "을를", 를: "을를", 은: "은는", 는: "은는", 과: "과와", 와: "과와", 이: "이가", 가: "이가", 아: "아야", 야: "아야" };
+  return pairs[particle][final ? 0 : 1];
 }

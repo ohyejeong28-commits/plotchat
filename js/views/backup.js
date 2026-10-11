@@ -86,7 +86,8 @@ export function initBackup() {
 }
 
 export const receivedText = (r) =>
-  `PC에서 플롯 ${r.added + r.updated}개를 받았어요${r.added ? ` (새 플롯 ${r.added}개)` : ""}. 대화는 그대로예요.`;
+  `PC에서 플롯 ${r.added + r.updated}개${r.chats ? `와 대화 ${r.chats}개` : ""}를 받았어요${r.added ? ` (새 플롯 ${r.added}개)` : ""}.` +
+  (r.chats ? " 폰에서 하던 대화는 그대로 두고 합쳤어요." : " 폰의 대화는 그대로예요.");
 
 function showSyncInfo() {
   const when = (ts) => new Date(ts).toLocaleString("ko-KR", { month: "long", day: "numeric", hour: "numeric", minute: "2-digit" });

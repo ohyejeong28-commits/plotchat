@@ -1,16 +1,16 @@
 // 채팅 화면 (제타의 대화방)
-import { loadSettings, saveSettings } from "../settings.js";
-import { ask, isLimited } from "../ai.js";
+import { loadSettings, saveSettings, unlimitedFor } from "../settings.js";
+import { ask, limitOf, modelLadder, currentAutoModel, AUTO, REASON_LABEL } from "../ai.js";
 import { buildSystem, buildSuggestSystem, buildMessages, fillVars, choicesOn, SUGGEST_REQUEST, skipTurnRequest } from "../prompt.js";
 import { getPlot } from "../plots.js";
 import { getPersona, personaForChat } from "../personas.js";
-import { getMemory, memoryWindow, needsSummary, summarize } from "../memory.js";
+import { getMemory, saveMemory, memoryWindow, needsSummary, summarize } from "../memory.js";
 import {
-  getChat, latestChat, createChat, saveChat, addMessage, setHead, updateMessage, deleteMessages,
+  getChat, latestChat, createChat, saveChat, addMessage, setHead, updateMessage, deleteMessages, branchChat,
   loadTree, pathOf, siblingsOf, latestLeaf, descendantsOf
 } from "../chats.js";
-import { renderText, splitBlocks, splitSegments, renderStatus, paintAvatar, modelLabel } from "../render.js";
-import { openDrawer, openSheet, closeOverlays, askText, menuItem, ICONS } from "../ui.js";
+import { renderText, splitBlocks, splitSegments, renderStatus, paintAvatar, modelLabel, modelShort } from "../render.js";
+import { openDrawer, openSheet, closeOverlays, askText, menuItem, showToast, ICONS } from "../ui.js";
 import { openPersonaSheet } from "./personas.js";
 import { register, go, goReplace, back, replaceTop, showView } from "../router.js";
 
@@ -142,6 +142,7 @@ async function generate(fallbackHeadId, rewrite, { skip = false } = {}) {
   const thisPersona = persona;
   const { summary, recent: history } = memoryWindow(memory, path); // 요약된 앞부분은 요약으로, 나머지는 그대로
   const userNote = memory.userNote;
+  const unlimited = unlimitedFor(thisPlot);
 
   const pending = appendTurn({ role: "assistant", content: "" });
   pending.classList.add("typing", "enter");
@@ -158,13 +159,14 @@ async function generate(fallbackHeadId, rewrite, { skip = false } = {}) {
   let reply = "";
   let error = "";
   let usedModel = model;
-  let switchedFrom = null;
+  let skipped = [];
   try {
     const result = await ask({
-      system: buildSystem(thisPlot, thisPersona, history, { chat: thisChat, rewrite, summary, userNote }),
+      system: buildSystem(thisPlot, thisPersona, history, { chat: thisChat, rewrite, summary, userNote, unlimited, voiceFrom: path }),
       messages: skip && history.at(-1)?.role === "assistant"
         ? [...buildMessages(history, thisPlot, thisPersona), { role: "user", content: skipTurnRequest(thisPersona) }]
         : buildMessages(history, thisPlot, thisPersona),
+      unlimited,
       signal: controller.signal,
       onText: (chunk) => {
         reply += chunk;
@@ -172,7 +174,8 @@ async function generate(fallbackHeadId, rewrite, { skip = false } = {}) {
       }
     });
     usedModel = result.model;
-    switchedFrom = result.switchedFrom;
+    skipped = result.skipped || [];
+    if (result.blocked) error = result.blocked; // 받은 만큼은 저장하고, 끊긴 이유를 알린다
   } catch (err) {
     if (err.name !== "AbortError") error = err.message;
   } finally {
@@ -189,7 +192,10 @@ async function generate(fallbackHeadId, rewrite, { skip = false } = {}) {
   await refresh();
   fillModelPicker(); // 한도가 찬 모델 표시를 갱신
   if (error) notice(error);
-  else if (switchedFrom) notice(`${modelLabel(switchedFrom)} 한도가 차서 이번 답변은 ${modelLabel(usedModel)} 모델이 했어요.`, "info");
+  else if (skipped.length) {
+    const why = skipped.map((s) => `${modelLabel(s.model)}(${REASON_LABEL[s.reason] || "막힘"})`).join(", ");
+    notice(`${why} 대신 ${modelLabel(usedModel)}(으)로 답했어요. 풀리면 자동으로 다시 위 모델을 써요.`, "info");
+  }
 }
 
 // 요약 안 된 메시지가 많이 쌓였으면 장기 기억을 정리한다. 실패해도 대화에는 지장이 없다 (다음 답변 뒤에 다시 시도).
@@ -392,16 +398,26 @@ async function nextSuggest() {
     return renderSuggest();
   }
   suggest.loading = true;
+  suggest.partial = [];
   renderSuggest();
   suggestController = new AbortController();
   const { summary, recent } = memoryWindow(memory, path);
+  const unlimited = unlimitedFor(plot);
+  let text = "";
   try {
-    const { text } = await ask({
-      system: buildSuggestSystem(plot, persona, recent, { summary, userNote: memory.userNote }),
+    await ask({
+      system: buildSuggestSystem(plot, persona, recent, { summary, userNote: memory.userNote, unlimited }),
       messages: [...buildMessages(recent, plot, persona), { role: "user", content: SUGGEST_REQUEST }],
-      signal: suggestController.signal
+      unlimited,
+      signal: suggestController.signal,
+      onText: (chunk) => {
+        // 쓰이는 대로 카드에 보여 준다
+        text += chunk;
+        suggest.partial = parseSuggestions(text, true);
+        renderSuggest();
+      }
     });
-    const items = [...text.matchAll(/<추천>([\s\S]*?)<\/추천>/g)].map((m) => m[1].trim()).filter(Boolean).slice(0, 3);
+    const items = parseSuggestions(text, false);
     if (!items.length) throw new Error("추천을 만들지 못했어요. 다시 눌러 주세요.");
     suggest.pages.push(items);
     suggest.index = suggest.pages.length - 1;
@@ -414,11 +430,27 @@ async function nextSuggest() {
   }
 }
 
+// <추천>…</추천> 블록을 꺼낸다. partial이면 아직 닫히지 않은 마지막 블록도 쓰는 중인 글로 넣는다.
+function parseSuggestions(text, partial) {
+  const items = [...text.matchAll(/<추천>([\s\S]*?)<\/추천>/g)].map((m) => m[1].trim()).filter(Boolean);
+  if (partial) {
+    const open = text.lastIndexOf("<추천>");
+    if (open > text.lastIndexOf("</추천>")) {
+      const tail = text.slice(open + 4).replace(/<\/?추?천?>?$/, "").trim();
+      if (tail) items.push(tail);
+    }
+  }
+  return items.slice(0, 3);
+}
+
 function renderSuggest() {
   const list = $("suggestList");
   list.innerHTML = "";
   if (suggest.loading) {
-    for (let i = 0; i < 3; i++) list.insertAdjacentHTML("beforeend", `<div class="suggest-card loading"><span class="spinner"></span></div>`);
+    // 다 쓴 추천과 쓰는 중인 추천은 바로 보여 주고, 아직 안 나온 자리는 빙글빙글
+    const shown = suggest.partial || [];
+    for (const item of shown) list.insertAdjacentHTML("beforeend", `<div class="suggest-card writing">${renderText(closeOpenStar(item))}</div>`);
+    for (let i = shown.length; i < 3; i++) list.insertAdjacentHTML("beforeend", `<div class="suggest-card loading"><span class="spinner"></span></div>`);
   } else {
     for (const item of suggest.pages[suggest.index] || []) {
       const card = document.createElement("button");
@@ -463,8 +495,90 @@ function appendTurn(msg, isLast = false) {
   turn.addEventListener("click", () => {
     if (deleteFrom !== undefined && msg.id) markDelete(msg.id);
   });
+  if (msg.id) bindMessageMenu(turn, msg);
   $("chatLog").appendChild(turn);
   return turn;
+}
+
+// ---- 메시지 메뉴 (제타처럼 오른쪽 클릭, 폰에서는 길게 누르기) ----
+
+function bindMessageMenu(turn, msg) {
+  turn.addEventListener("contextmenu", (e) => {
+    if (e.target.closest("textarea, .edit-box")) return; // 고치는 중인 글상자는 보통 메뉴
+    e.preventDefault();
+    openMessageMenu(msg);
+  });
+  let timer = 0;
+  let start = null;
+  const cancel = () => clearTimeout(timer);
+  turn.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch") return; // 마우스는 오른쪽 클릭으로
+    start = { x: e.clientX, y: e.clientY };
+    timer = setTimeout(() => {
+      turn.dataset.longPress = "1";
+      openMessageMenu(msg);
+    }, 500);
+  });
+  turn.addEventListener("pointermove", (e) => {
+    if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 10) cancel();
+  });
+  turn.addEventListener("pointerup", cancel);
+  turn.addEventListener("pointercancel", cancel);
+  // 길게 눌러 메뉴를 연 뒤 따라오는 클릭은 무시한다
+  turn.addEventListener("click", (e) => {
+    if (turn.dataset.longPress) {
+      delete turn.dataset.longPress;
+      e.stopImmediatePropagation();
+    }
+  }, true);
+}
+
+function openMessageMenu(msg) {
+  if (controller || deleteFrom !== undefined) return; // 답변을 받는 중이거나 삭제 모드면 열지 않는다
+  openSheet((body) => {
+    const group = (...items) => {
+      const g = document.createElement("div");
+      g.className = "sheet-group";
+      g.append(...items);
+      body.appendChild(g);
+    };
+    group(menuItem({ label: "여기서부터 새로하기", sub: "이 메시지까지 담은 새 대화를 만들어요", onClick: () => { closeOverlays(); branchFrom(msg); } }));
+    group(
+      menuItem({ label: "복사", onClick: () => { closeOverlays(); copyMessage(msg); } }),
+      menuItem({ label: "삭제", sub: "이 메시지부터 아래를 지워요", danger: true, onClick: () => { closeOverlays(); enterDeleteMode(); markDelete(msg.id); } })
+    );
+  });
+}
+
+async function branchFrom(msg) {
+  if (!confirm("여기서부터 새로 할까요?\n기존 대화는 '이어하기'에서 언제든 다시 할 수 있어요.")) return;
+  const upto = path.slice(0, path.findIndex((m) => m.id === msg.id) + 1);
+  if (!upto.length) return;
+  const { chat: next, idMap } = await branchChat(chat, upto);
+  // 기억: 유저노트는 그대로, 요약은 이 메시지 앞까지 정리된 경우만 가져간다
+  const old = memory || {};
+  const copy = { chatId: next.id, userNote: old.userNote || "", summary: "", upToId: null, updatedAt: Date.now() };
+  if (old.upToId && idMap[old.upToId]) Object.assign(copy, { summary: old.summary, upToId: idMap[old.upToId] });
+  else if (!old.upToId && old.summary) copy.summary = old.summary; // 직접 적어 둔 요약
+  if (copy.userNote || copy.summary) await saveMemory(copy);
+  goReplace("chat", plot.id, next.id);
+  showToast("여기서부터 새로 시작해요. 기존 대화는 이어하기에 있어요.");
+}
+
+async function copyMessage(msg) {
+  // [이름] 머리줄은 빼고 본문만
+  const text = fillVars(msg.content, plot, persona).split("\n").filter((l) => !/^\s*\[[^\]\n]{1,30}\]\s*$/.test(l)).join("\n").trim();
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
+  showToast("복사했어요.");
 }
 
 function fillTurn(turn, msg) {
@@ -490,7 +604,7 @@ function fillTurn(turn, msg) {
       el.innerHTML = `${ICONS.lines}<div class="narrator-text"></div>`;
       el.querySelector(".narrator-text").innerHTML = renderText(seg.text);
     } else {
-      el.className = "seg";
+      el.className = "speaker";
       el.innerHTML = `<span class="avatar"></span><div class="seg-body"><div class="seg-name"></div><div class="bubble"></div></div>`;
       paintAvatar(el.querySelector(".avatar"), seg.who);
       el.querySelector(".seg-name").textContent = seg.name;
@@ -563,19 +677,26 @@ function roundButton(icon, label, onClick, disabled = false, kind = "round") {
 }
 
 // 위쪽 모델 선택 (제타의 koji/luca 자리)
+// 맨 위는 "자동 · 지금 쓰는 모델", 그 아래는 품질 순서 사다리 (막힌 모델은 "· 오늘 한도" / "· 서버 붐빔")
 function fillModelPicker() {
   const { model, models } = loadSettings();
   const select = $("chatModel");
   select.innerHTML = "";
-  const list = models.length ? models : model ? [{ id: model }] : [];
-  for (const m of list) {
+  const add = (value, text) => {
     const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.textContent = modelLabel(m.id) + (isLimited(m.id) ? " · 한도" : "");
+    opt.value = value;
+    opt.textContent = text;
     select.appendChild(opt);
+  };
+  const ladder = modelLadder(models);
+  const top = currentAutoModel();
+  add(AUTO, top ? `자동 · ${modelShort(top)}` : "자동");
+  for (const id of ladder) {
+    const mark = limitOf(id);
+    add(id, modelLabel(id) + (mark ? ` · ${REASON_LABEL[mark.reason] || "막힘"}` : ""));
   }
-  select.value = model;
-  select.hidden = !list.length;
+  if (model && model !== AUTO && !ladder.includes(model)) add(model, modelLabel(model));
+  select.value = model || AUTO;
 }
 
 // ---- 기타 ----

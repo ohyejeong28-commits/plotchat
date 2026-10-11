@@ -37,6 +37,19 @@ export const getAll = (storeName) => run(storeName, "readonly", (s) => s.getAll(
 export const getAllBy = (storeName, index, key) => run(storeName, "readonly", (s) => s.index(index).getAll(key));
 export const del = (storeName, id) => run(storeName, "readwrite", (s) => s.delete(id));
 
+// 여러 값을 한 번에 넣는다 (폰에서 대화 기록을 받을 때)
+export async function putMany(storeName, values) {
+  if (!values.length) return;
+  const db = await open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    for (const v of values) store.put(v);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 // 여러 저장소를 한 번에 통째로 바꾼다 (백업 불러오기). 하나라도 실패하면 아무것도 바뀌지 않는다.
 // data: { 저장소 이름: [값, ...] }
 export async function replaceStores(data) {

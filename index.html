@@ -64,6 +64,15 @@
     </div>
     <div id="personaList" class="sheet-group list-group"></div>
 
+    <h2 class="pane-title">대화 모드</h2>
+    <div class="box">
+      <div id="chatMode" class="mode-pick">
+        <button type="button" data-mode="safe"><b>세이프 모드</b><small>15세 이용가 수준으로 대화해요</small></button>
+        <button type="button" data-mode="unlimited"><b><span class="unlimited-mark"><svg viewBox="0 0 24 24"><path d="M12 3.5v17M4.6 7.75l14.8 8.5M4.6 16.25l14.8-8.5"/></svg></span>언리밋 모드</b><small>언리밋 플롯에서 더 자유로운 표현으로 대화해요 · 만 19세 이상</small></button>
+      </div>
+      <p class="hint">언리밋 모드는 플롯 수정 → 소개 탭에서 언리밋을 켠 플롯에만 적용돼요.</p>
+    </div>
+
     <h2 class="pane-title">AI 연결</h2>
     <div class="box">
       <p class="hint">Google AI Studio에서 무료 API 키를 발급받아 붙여 넣으세요.
@@ -89,14 +98,14 @@
     <div class="box">
       <!-- PC 앱 -->
       <div class="desktop-only">
-        <p class="hint">플롯(캐릭터, 설정, 이미지)과 대화 프로필을 폰으로 보내요. 보내고 1~2분 뒤 폰에서 앱을 열면
-          자동으로 받아져요. 폰의 대화는 그대로예요. 앱 업데이트를 올릴 때도 최신 플롯이 같이 올라가요.</p>
+        <p class="hint">플롯(캐릭터, 설정, 이미지), 대화 프로필, 대화 기록을 폰으로 보내요. 보내고 1~2분 뒤 폰에서 앱을 열면
+          자동으로 받아져요. 폰에서 하던 대화는 지우지 않고 합쳐요. 앱 업데이트를 올릴 때는 플롯과 프로필만 같이 올라가요.</p>
         <button id="syncSend" class="primary" type="button">폰으로 보내기</button>
         <p id="syncSendInfo" class="sync-info"></p>
       </div>
       <!-- 폰(웹) -->
       <div class="web-only">
-        <p class="hint">PC에서 보낸 플롯과 대화 프로필을 앱을 열 때 자동으로 받아요. 이 기기의 대화는 그대로예요.
+        <p class="hint">PC에서 보낸 플롯, 대화 프로필, 대화 기록을 앱을 열 때 자동으로 받아요. 이 기기에서 하던 대화는 지우지 않고 합쳐요.
           PC와 같은 API 키를 넣어 두어야 받을 수 있어요.</p>
         <button id="syncReceive" class="primary" type="button">지금 받기</button>
         <p id="syncReceiveInfo" class="sync-info"></p>
@@ -138,6 +147,9 @@
       <button id="plotBack" class="icon-btn over" type="button" aria-label="뒤로">
         <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
       </button>
+      <button id="plotMore" class="icon-btn over right" type="button" aria-label="더 보기">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+      </button>
       <div class="plot-cover-text">
         <h1 id="plotTitle"></h1>
         <p id="plotDesc"></p>
@@ -145,16 +157,40 @@
     </div>
     <div class="plot-body">
       <div id="plotTags" class="tags"></div>
-      <div id="plotCast" class="cast"></div>
-      <button id="plotContinue" class="primary big" type="button">대화 시작</button>
-      <div class="row plot-subactions">
-        <button id="plotNewChat" class="secondary" type="button">새 대화</button>
-        <button id="plotEdit" class="secondary" type="button">수정</button>
-        <button id="plotDelete" class="secondary danger" type="button">삭제</button>
-      </div>
+      <div id="plotBadges" class="plot-badges" hidden><span class="badge-unlimited"><svg viewBox="0 0 24 24"><path d="M12 3.5v17M4.6 7.75l14.8 8.5M4.6 16.25l14.8-8.5"/></svg>언리밋</span></div>
+      <!-- 제타 플롯 프로필처럼: 소개 / 캐릭터 / 인트로 (길면 접어 두고 더보기) -->
+      <section id="plotAboutSec" class="plot-sec">
+        <h2 class="pane-title">소개</h2>
+        <div class="fold-box"><div id="plotAbout" class="fold plain-text"></div><button type="button" class="fold-btn">더보기</button></div>
+      </section>
+      <section class="plot-sec">
+        <h2 class="pane-title">캐릭터</h2>
+        <div id="plotCast" class="char-cards"></div>
+      </section>
+      <section id="plotIntroSec" class="plot-sec">
+        <h2 class="pane-title">인트로</h2>
+        <div id="plotIntro" class="intro-chat"></div>
+      </section>
       <h2 class="pane-title">저장된 대화</h2>
       <div id="chatList" class="chat-list"></div>
       <p id="chatListEmpty" class="hint" hidden>아직 대화가 없어요.</p>
+    </div>
+    <!-- 제타처럼 아래에 고정: [새 대화] [이어서 대화하기] -->
+    <div class="plot-bar">
+      <button id="plotNewChat" class="plot-bar-side" type="button" aria-label="새 대화" title="새 대화">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button id="plotContinue" class="plot-bar-main" type="button">대화 시작하기</button>
+    </div>
+    <!-- 캐릭터 사진 크게 보기 (제타처럼 이름 + 소개 + 큰 사진) -->
+    <div id="charViewer" class="char-viewer" hidden>
+      <header class="char-viewer-head">
+        <button id="charViewerClose" class="icon-btn" type="button" aria-label="닫기"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <h1 id="charViewerName"></h1>
+        <span class="icon-btn-space"></span>
+      </header>
+      <div class="fold-box"><div id="charViewerDesc" class="fold plain-text"></div><button type="button" class="fold-btn">더보기</button></div>
+      <div class="char-viewer-img"><img id="charViewerImg" alt=""></div>
     </div>
   </section>
 
@@ -239,6 +275,11 @@
             <button id="tagAdd" class="secondary" type="button">+ 추가 <span id="tagCount"></span></button>
           </div>
         </div>
+      </div>
+      <h2 class="pane-title">언리밋 모드</h2>
+      <div class="style-group">
+        <label class="toggle-row"><span><span class="unlimited-mark"><svg viewBox="0 0 24 24"><path d="M12 3.5v17M4.6 7.75l14.8 8.5M4.6 16.25l14.8-8.5"/></svg></span>언리밋 플롯으로 만들기<small>대화 모드가 언리밋일 때 이 플롯은 청소년 이용불가 수준까지 더 자유롭게 표현해요.
+          미성년자 설정, 실존 인물 사진, 자해·자살 미화가 들어간 플롯은 켜지 마세요.</small></span><input id="editUnlimited" type="checkbox" class="switch"></label>
       </div>
     </div>
     <input id="imgInput" type="file" accept="image/*" hidden>
@@ -344,6 +385,7 @@
         <small id="memoryInfo" class="memory-info"></small>
         <button id="memoryRefresh" class="secondary small" type="button">지금 정리하기</button>
       </div>
+      <button id="memoryRebuild" class="text-btn memory-rebuild" type="button">처음부터 다시 정리하기</button>
       <button id="memorySave" class="primary big" type="button">저장하기</button>
     </div>
   </section>

@@ -20,6 +20,7 @@ export function initMemory() {
     await saveMemory({ ...latest, userNote: $("userNote").value.trim(), summary, upToId: summary ? latest.upToId : null });
     back("chats");
   });
+  $("memoryRebuild").addEventListener("click", rebuild);
   $("memoryRefresh").addEventListener("click", async () => {
     const { apiKey, model } = loadSettings();
     if (!apiKey || !model) return setInfo("마이페이지에서 AI 연결을 먼저 해 주세요.", true);
@@ -38,6 +39,33 @@ export function initMemory() {
       $("memoryRefresh").disabled = false;
     }
   });
+}
+
+// 요약을 비우고 대화 처음부터 다시 정리한다 (긴 대화는 여러 번에 나눠서). 실패하면 원래 요약으로 되돌린다.
+async function rebuild() {
+  const { apiKey } = loadSettings();
+  if (!apiKey) return setInfo("마이페이지에서 AI 연결을 먼저 해 주세요.", true);
+  if (!confirm("지금까지의 요약을 지우고 대화 처음부터 다시 정리할까요?\n대화가 길면 몇 분 걸리고 AI를 여러 번 불러요. 유저노트는 그대로예요.")) return;
+  const old = await getMemory(ctx.chat.id);
+  await saveMemory({ ...old, userNote: $("userNote").value.trim(), summary: "", upToId: null, updatedAt: Date.now() });
+  $("memoryRebuild").disabled = $("memoryRefresh").disabled = $("memorySave").disabled = true;
+  try {
+    for (let round = 0; round < 100; round++) {
+      setInfo(`처음부터 다시 정리하는 중… (${memoryWindow(await getMemory(ctx.chat.id), ctx.path).summarizedCount}/${ctx.path.length})`);
+      const next = await summarize(ctx.chat.id, ctx.path, ctx.plot, ctx.persona, { force: true });
+      if (!next) break;
+      ctx.memory = next;
+    }
+    ctx.memory = await getMemory(ctx.chat.id);
+    render("처음부터 다시 정리했어요.");
+  } catch (err) {
+    await saveMemory(old); // 중간에 실패하면 원래 요약으로 되돌린다
+    ctx.memory = old;
+    render();
+    setInfo(`다시 정리하지 못해 원래 요약으로 되돌렸어요. (${err.message})`, true);
+  } finally {
+    $("memoryRebuild").disabled = $("memoryRefresh").disabled = $("memorySave").disabled = false;
+  }
 }
 
 async function openMemory(plotId, chatId) {

@@ -23,6 +23,7 @@ export function initEdit() {
   bindText("editExamples", (v) => (draft.examples = v));
   bindText("editIntro", (v) => (draft.intro = v));
   bindText("editDesc", (v) => (draft.description = v));
+  $("editUnlimited").addEventListener("change", (e) => (draft.unlimited = e.target.checked));
 
   $("charAdd").addEventListener("click", () => {
     if (draft.characters.length >= LIMITS.characters) return;
@@ -80,6 +81,7 @@ async function openEditor(id) {
   $("editExamples").value = draft.examples;
   $("editIntro").value = draft.intro;
   $("editDesc").value = draft.description;
+  $("editUnlimited").checked = draft.unlimited;
   renderCharacters();
   renderLore();
   renderStyle();

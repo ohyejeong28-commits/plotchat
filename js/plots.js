@@ -4,7 +4,7 @@
 //   name, image: 첫 번째 캐릭터의 이름/이미지 (목록과 채팅에 보여 주는 대표값)
 import { put, get, getAll, del } from "./db.js";
 import { deleteChatsOfPlot } from "./chats.js";
-import { markDirty } from "./sync.js";
+import { markDirty, recordDeleted } from "./sync.js";
 
 export const LIMITS = { title: 20, name: 10, prompt: 2400, examples: 2000, intro: 1500, description: 40, tags: 10, characters: 10, lore: 20 };
 
@@ -68,6 +68,7 @@ export async function savePlot(plot) {
 export async function deletePlot(id) {
   await deleteChatsOfPlot(id);
   await del("plots", id);
+  recordDeleted("plots", id); // PC: 폰에서도 지워지게
   markDirty();
 }
 
@@ -85,6 +86,7 @@ export function normalizePlot(plot) {
   p.tags ??= [];
   p.lore ??= [];
   p.style ??= {};
+  p.unlimited = !!p.unlimited; // 언리밋 플롯 (대화 모드가 언리밋일 때 더 자유로운 표현)
   p.name = p.characters[0].name;
   p.image = p.characters[0].image;
   return p;

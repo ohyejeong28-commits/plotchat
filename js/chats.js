@@ -52,6 +52,23 @@ export async function setHead(chat, id) {
 
 export const updateMessage = (msg) => put("messages", msg);
 
+// 여기서부터 새로하기: messages(처음부터 고른 메시지까지)를 복사해 새 대화를 만든다. 원래 대화는 그대로 남는다.
+// { chat: 새 대화, idMap: 원래 메시지 id → 새 메시지 id }
+export async function branchChat(chat, messages) {
+  const copy = { id: newId(), plotId: chat.plotId, personaId: chat.personaId, headId: null, createdAt: now(), updatedAt: now() };
+  if (chat.choices !== undefined) copy.choices = chat.choices;
+  const idMap = {};
+  for (const m of messages) {
+    const { id, chatId, parentId, ...rest } = m;
+    const msg = { ...rest, id: newId(), chatId: copy.id, parentId: copy.headId };
+    await put("messages", msg);
+    idMap[id] = msg.id;
+    copy.headId = msg.id;
+  }
+  await put("chats", copy);
+  return { chat: copy, idMap };
+}
+
 export async function deleteMessages(ids) {
   for (const id of ids) await del("messages", id);
 }

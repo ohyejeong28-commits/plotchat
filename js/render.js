@@ -38,13 +38,24 @@ function speakerOf(speaker, plot) {
 
 // 모델 이름 줄임: models/gemini-3.6-flash → 3.6-flash
 export const modelLabel = (id = "") => id.replace(/^models\//, "").replace(/^gemini-/, "");
+// 더 짧게 (위쪽 모델 버튼용): 3.8-flash → 3.8, 3.5-flash-lite → 3.5 lite, gemma-4-31b-it → gemma 31b
+export const modelShort = (id = "") => {
+  const label = modelLabel(id);
+  if (/^gemma/.test(label)) return "gemma " + (label.match(/(\d+)b/)?.[1] || "") + "b";
+  return label.replace(/-flash/, "").replace(/-preview/, " 미리보기").replace(/-/g, " ") || label;
+};
 
-// 본문 표시: *서술*은 회색 기울임, **강조**는 굵게
+// 본문 표시: *서술*은 회색 기울임, **강조**는 굵게.
+// 제타처럼 빈 줄로 나뉜 덩어리는 문단(사이를 띄운다), 한 줄 바꿈은 같은 문단 안에서 다음 줄로.
 export function renderText(text) {
-  return escapeHtml(text)
+  const inline = (line) => escapeHtml(line)
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*\n]+)\*/g, '<em class="narr">$1</em>')
-    .replace(/\n/g, "<br>");
+    .replace(/\*([^*\n]+)\*/g, '<em class="narr">$1</em>');
+  return text.split(/\n\s*\n/)
+    .map((para) => para.split("\n").map((line) => line.trim()).filter(Boolean))
+    .filter((lines) => lines.length)
+    .map((lines) => `<p>${lines.map(inline).join("<br>")}</p>`)
+    .join("");
 }
 
 // 캐릭터 답변을 본문 / 상태창(bg, chars) / 선택지(choices)로 나눈다.

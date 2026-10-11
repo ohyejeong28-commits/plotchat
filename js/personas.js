@@ -1,7 +1,7 @@
 // 대화 프로필: 대화에서 사용자가 연기하는 캐릭터 (이름 + 설명)
 import { put, get, getAll, del } from "./db.js";
 import { loadSettings, saveSettings } from "./settings.js";
-import { markDirty } from "./sync.js";
+import { markDirty, recordDeleted } from "./sync.js";
 
 export async function listPersonas() {
   return (await getAll("personas")).sort((a, b) => a.createdAt - b.createdAt);
@@ -25,9 +25,13 @@ export async function savePersona(persona) {
 
 export async function deletePersona(id) {
   await del("personas", id);
+  recordDeleted("personas", id); // PC: 폰에서도 지워지게
   markDirty();
   if (loadSettings().defaultPersonaId === id) saveSettings({ defaultPersonaId: "" });
 }
+
+// 기본 프로필 (목록의 소개 글에 나오는 {{user}}를 이 이름으로 보여 준다)
+export const defaultPersona = () => getPersona(loadSettings().defaultPersonaId);
 
 // 대화에 쓸 프로필: 대화에 정해 둔 게 없으면(예전 대화) 기본 프로필
 export async function personaForChat(chat) {

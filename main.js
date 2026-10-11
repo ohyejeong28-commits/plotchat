@@ -54,9 +54,11 @@ app.on("second-instance", () => {
 function createWindow() {
   // 제타처럼 세로로 긴 모바일 폭 창 (화면 높이에 맞춘다)
   const workArea = screen.getPrimaryDisplay().workAreaSize;
+  // 개발 확인용: PLOTCHAT_SIZE=390x844 처럼 주면 그 크기로 연다 (아이폰 화면 확인)
+  const [testW, testH] = (process.env.PLOTCHAT_SIZE || "").split("x").map(Number);
   win = new BrowserWindow({
-    width: 560,
-    height: Math.min(960, workArea.height - 40),
+    width: testW || 560,
+    height: testH || Math.min(960, workArea.height - 40),
     minWidth: 360,
     minHeight: 560,
     title: "플롯챗",
@@ -76,8 +78,12 @@ function createWindow() {
   if (process.env.PLOTCHAT_URL) win.loadURL(process.env.PLOTCHAT_URL);
   else win.loadFile("index.html");
 
-  // 앱 안의 외부 링크는 기본 브라우저로 연다
+  // 개발 확인용: PLOTCHAT_UA를 주면 그 브라우저인 것처럼 연다 (제타 웹을 아이폰 화면으로 보기)
+  if (process.env.PLOTCHAT_UA) win.webContents.setUserAgent(process.env.PLOTCHAT_UA);
+
+  // 앱 안의 외부 링크는 기본 브라우저로 연다. 웹 주소를 여는 개발 모드에서는 로그인 팝업 등을 그대로 연다.
   win.webContents.setWindowOpenHandler(({ url }) => {
+    if (process.env.PLOTCHAT_URL) return { action: "allow" };
     shell.openExternal(url);
     return { action: "deny" };
   });
