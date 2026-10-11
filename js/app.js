@@ -12,7 +12,7 @@ import { initSaves } from "./views/saves.js";
 import { initMemory } from "./views/memory.js";
 import { initBackup } from "./views/backup.js";
 import { initOverlays, showToast } from "./ui.js";
-import { initViewport } from "./viewport.js";
+import { initViewport, viewportInfo } from "./viewport.js";
 import { isDesktop, markDirty, receiveFromPC } from "./sync.js";
 import { receivedText } from "./views/backup.js";
 import { VERSION } from "./version.js";
@@ -39,7 +39,10 @@ go(loadSettings().apiKey ? "home" : "my");
 
 // PC 앱: 폰으로 보낼 파일을 최신으로 써 둔다 / 폰: PC에서 보낸 새 플롯이 있으면 받아서 합친다
 document.body.classList.toggle("is-desktop", isDesktop());
-document.getElementById("appVersion").textContent = `앱 버전 ${VERSION}`;
+// 앱 버전 + 화면 높이 확인용 숫자 (화면 · 창 · 보이는 영역 · 앱). 마이페이지를 열 때마다 새로 잰다
+const showVersion = () => (document.getElementById("appVersion").textContent = `앱 버전 ${VERSION} · ${viewportInfo()}`);
+showVersion();
+document.querySelector('.nav-item[data-view="my"]')?.addEventListener("click", () => setTimeout(showVersion, 300));
 if (isDesktop()) markDirty();
 else receiveNewPlots();
 
