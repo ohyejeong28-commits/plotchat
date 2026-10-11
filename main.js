@@ -1,7 +1,42 @@
-const { app, BrowserWindow, Menu, shell, screen } = require("electron");
+const { app, BrowserWindow, Menu, shell, screen, ipcMain } = require("electron");
 const path = require("path");
+const fs = require("fs");
+const { execFile } = require("child_process");
 
 Menu.setApplicationMenu(null);
+
+// 폰으로 보낼 암호화된 플롯 파일 (앱 폴더 = GitHub에 올라가는 폴더). 개발 확인용으로 PLOTCHAT_SYNC_DIR로 바꿀 수 있다.
+const SYNC_ROOT = process.env.PLOTCHAT_SYNC_DIR || __dirname;
+const SYNC_FILE = path.join(SYNC_ROOT, "sync", "plots.json");
+
+function writeSyncFile(text) {
+  fs.mkdirSync(path.dirname(SYNC_FILE), { recursive: true });
+  fs.writeFileSync(SYNC_FILE, text);
+}
+
+function git(args) {
+  return new Promise((resolve, reject) => {
+    execFile("git", args, { cwd: SYNC_ROOT, windowsHide: true }, (err, stdout, stderr) =>
+      err ? reject(new Error((stderr || err.message).trim())) : resolve(stdout));
+  });
+}
+
+ipcMain.handle("sync:write", (e, text) => writeSyncFile(text));
+
+// "폰으로 보내기": 파일만 따로 커밋해서 GitHub에 올린다 (1~2분 뒤 폰이 앱을 열 때 받아 간다)
+ipcMain.handle("sync:publish", async (e, text) => {
+  try {
+    writeSyncFile(text);
+    await git(["add", "sync/plots.json"]);
+    if ((await git(["diff", "--cached", "--name-only", "--", "sync/plots.json"])).trim()) {
+      await git(["commit", "-m", "폰으로 플롯 보내기", "--", "sync/plots.json"]);
+    }
+    await git(["push"]);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+});
 
 // 개발 확인용: PLOTCHAT_USERDATA를 주면 사용자 데이터와 분리된 저장소로 실행한다
 if (process.env.PLOTCHAT_USERDATA) app.setPath("userData", process.env.PLOTCHAT_USERDATA);
@@ -29,7 +64,11 @@ function createWindow() {
     backgroundColor: "#000000",
     autoHideMenuBar: true,
     show: false,
-    webPreferences: { spellcheck: false } // 한국어 이름과 롤플레이 문장에 빨간 밑줄이 생기지 않게
+    webPreferences: {
+      spellcheck: false, // 한국어 이름과 롤플레이 문장에 빨간 밑줄이 생기지 않게
+      // PC 앱에서만 "폰으로 보내기" 기능을 연다 (웹 버전 확인용 실행에서는 폰처럼 동작하게 뺀다)
+      preload: process.env.PLOTCHAT_URL ? undefined : path.join(__dirname, "preload.js")
+    }
   });
   win.once("ready-to-show", () => win.show());
   win.on("page-title-updated", (e) => e.preventDefault());

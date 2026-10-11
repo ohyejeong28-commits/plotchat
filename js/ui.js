@@ -82,6 +82,16 @@ export function menuItem({ label, sub = "", value = "", chevron = false, danger 
   return b;
 }
 
+// 위쪽에 잠깐 떴다 사라지는 안내
+let toastTimer = 0;
+export function showToast(text) {
+  const el = $("toast");
+  el.textContent = text;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (el.hidden = true), 3500);
+}
+
 export function initOverlays() {
   $("overlay").addEventListener("click", closeOverlays);
   document.addEventListener("viewchange", closeOverlays);

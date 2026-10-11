@@ -85,10 +85,40 @@
       </label>
     </div>
 
-    <h2 class="pane-title">데이터 백업</h2>
+    <h2 class="pane-title">폰과 플롯 맞추기</h2>
+    <div class="box">
+      <!-- PC 앱 -->
+      <div class="desktop-only">
+        <p class="hint">플롯(캐릭터, 설정, 이미지)과 대화 프로필을 폰으로 보내요. 보내고 1~2분 뒤 폰에서 앱을 열면
+          자동으로 받아져요. 폰의 대화는 그대로예요. 앱 업데이트를 올릴 때도 최신 플롯이 같이 올라가요.</p>
+        <button id="syncSend" class="primary" type="button">폰으로 보내기</button>
+        <p id="syncSendInfo" class="sync-info"></p>
+      </div>
+      <!-- 폰(웹) -->
+      <div class="web-only">
+        <p class="hint">PC에서 보낸 플롯과 대화 프로필을 앱을 열 때 자동으로 받아요. 이 기기의 대화는 그대로예요.
+          PC와 같은 API 키를 넣어 두어야 받을 수 있어요.</p>
+        <button id="syncReceive" class="primary" type="button">지금 받기</button>
+        <p id="syncReceiveInfo" class="sync-info"></p>
+      </div>
+      <p id="syncStatus" class="status"></p>
+
+      <details class="file-transfer">
+        <summary>파일로 옮기기</summary>
+        <p class="hint">인터넷 없이 옮기거나 다른 사람에게 캐릭터를 줄 때 써요. 대화는 들어가지 않아요.</p>
+        <div class="row">
+          <button id="plotsExport" class="secondary" type="button">플롯 내보내기</button>
+          <button id="plotsImport" class="secondary" type="button">플롯 가져오기</button>
+        </div>
+        <p id="plotsStatus" class="status"></p>
+        <input id="plotsFile" type="file" accept="application/json,.json" hidden>
+      </details>
+    </div>
+
+    <h2 class="pane-title">전체 백업</h2>
     <div class="box">
       <p class="hint">플롯, 대화, 대화 프로필, 기억을 파일 하나로 저장하고 다시 불러올 수 있어요.
-        아이폰으로 옮길 때나 컴퓨터를 바꿀 때 써요.</p>
+        불러오면 이 기기의 데이터가 백업 내용으로 <b>전부 바뀌어요</b>. 휴대폰을 바꿀 때나 보관용으로 써요.</p>
       <p id="dataStats" class="data-stats"></p>
       <label class="toggle-row toggle-plain"><span>API 키도 같이 저장<small>다른 기기로 옮길 때 편해요. 이 파일은 남에게 주면 안 돼요.</small></span>
         <input id="backupKey" type="checkbox" class="switch"></label>
@@ -349,6 +379,7 @@
 </main>
 
 <!-- 위에 뜨는 것들: 배경 가림막, 아래 시트, 오른쪽 메뉴, 입력 창 -->
+<div id="toast" class="toast" hidden></div>
 <div id="overlay" class="overlay" hidden></div>
 <div id="sheet" class="sheet" hidden><div class="sheet-handle"></div><div id="sheetBody"></div></div>
 <aside id="drawer" class="drawer" hidden><div id="drawerBody"></div></aside>

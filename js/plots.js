@@ -4,6 +4,7 @@
 //   name, image: 첫 번째 캐릭터의 이름/이미지 (목록과 채팅에 보여 주는 대표값)
 import { put, get, getAll, del } from "./db.js";
 import { deleteChatsOfPlot } from "./chats.js";
+import { markDirty } from "./sync.js";
 
 export const LIMITS = { title: 20, name: 10, prompt: 2400, examples: 2000, intro: 1500, description: 40, tags: 10, characters: 10, lore: 20 };
 
@@ -59,12 +60,15 @@ export async function savePlot(plot) {
   plot.updatedAt = now;
   plot.name = plot.characters[0]?.name || "";
   plot.image = plot.characters[0]?.image || "";
-  return put("plots", plot);
+  await put("plots", plot);
+  markDirty(); // PC: 폰으로 보낼 파일을 새로 써 둔다
+  return plot;
 }
 
 export async function deletePlot(id) {
   await deleteChatsOfPlot(id);
   await del("plots", id);
+  markDirty();
 }
 
 // 예전 구조(캐릭터 한 명: name/image/prompt)로 저장된 플롯도 새 구조로 읽는다

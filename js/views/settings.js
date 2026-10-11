@@ -1,5 +1,7 @@
 import { loadSettings, saveSettings } from "../settings.js";
 import { listModels } from "../llm.js";
+import { receiveFromPC, isDesktop } from "../sync.js";
+import { showToast } from "../ui.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -32,6 +34,11 @@ export function initSettings() {
       fillModels(models, pick.id);
       saveSettings({ model: pick.id, models });
       setStatus(`연결됐어요 · 대화 모델 ${models.length}개`, "ok");
+      if (!isDesktop()) {
+        receiveFromPC()
+          .then((r) => r && showToast(`PC에서 플롯 ${r.added + r.updated}개를 받았어요.`))
+          .catch((err) => showToast(err.message));
+      }
     } catch (err) {
       setStatus(err.message, "err");
     } finally {
