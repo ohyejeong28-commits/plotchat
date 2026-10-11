@@ -14,7 +14,7 @@
 ::-webkit-scrollbar{width:8px;height:8px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:#3a3a3a;border-radius:8px;}
-html,body{height:100%;margin:0;background:#181818;overflow:hidden;overscroll-behavior:none;}
+html,body{height:100%;margin:0;background:#151516;overflow:hidden;overscroll-behavior:none;}
 html{-webkit-text-size-adjust:100%;}
 body{color:var(--ink);font-family:"Pretendard","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
   font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;}
@@ -31,16 +31,16 @@ body.keyboard-open .chat-input,body.keyboard-open .suggest-panel,body.keyboard-o
 .view{display:none;padding:0 16px 32px;}
 .view.active{display:block;}
 
-/* 아래 탭 바 */
-#bottomNav{display:flex;background:#181818;border-top:1px solid var(--line);border-radius:16px 16px 0 0;
-  padding:6px 0 calc(6px + env(safe-area-inset-bottom));}
+/* 아래 탭 바: 제타처럼 배경과 같은 색에 위쪽 얇은 선만 (둥근 판처럼 떠 보이지 않게). 아래 홈 바 여백은 조금 줄인다 */
+#bottomNav{display:flex;background:var(--bg);border-top:1px solid #262628;
+  padding:6px 0 max(6px, calc(env(safe-area-inset-bottom) - 8px));}
 body.full #bottomNav{display:none;}
 .nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:0;padding:4px 0;
   color:#6f6f6f;font-size:11px;font-weight:600;cursor:pointer;}
 .nav-item svg{width:26px;height:26px;}
 .nav-item .fill{fill:currentColor;}
-.nav-item .cut{stroke:#181818;stroke-width:2.2;stroke-linecap:round;fill:none;}
-.nav-item .dot{fill:#181818;}
+.nav-item .cut{stroke:var(--bg);stroke-width:2.2;stroke-linecap:round;fill:none;}
+.nav-item .dot{fill:var(--bg);}
 .nav-item.active{color:#fff;}
 
 /* 공통 */
