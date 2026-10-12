@@ -9,7 +9,7 @@ import {
   getChat, latestChat, createChat, saveChat, addMessage, setHead, updateMessage, deleteMessages, branchChat,
   loadTree, pathOf, siblingsOf, latestLeaf, descendantsOf
 } from "../chats.js";
-import { renderText, splitBlocks, splitSegments, renderStatus, paintAvatar, modelLabel, modelShort } from "../render.js";
+import { renderText, splitBlocks, splitSegments, renderStatus, paintAvatar, modelLabel, modelShort, toEditText, fromEditText } from "../render.js";
 import { openDrawer, openSheet, closeOverlays, askText, menuItem, showToast, ICONS } from "../ui.js";
 import { openPersonaSheet } from "./personas.js";
 import { register, go, goReplace, back, replaceTop, showView } from "../router.js";
@@ -164,7 +164,9 @@ async function generate(fallbackHeadId, rewrite, { skip = false } = {}) {
   try {
     const result = await ask({
       system: buildSystem(thisPlot, thisPersona, history, { chat: thisChat, rewrite, summary, userNote, unlimited, voiceFrom: path, traits: memory.traits }),
-      messages: skip && history.at(-1)?.role === "assistant"
+      // 마지막이 캐릭터 답변이면 (턴 넘기기, 턴 넘기기로 받은 답을 다시 받기, 제타에서 가져온 연속 답변) "지켜본다" 신호를 붙인다.
+      // Gemini는 AI 차례로 끝나는 요청을 받지 않는다 (오류 400)
+      messages: history.at(-1)?.role === "assistant"
         ? [...buildMessages(history, thisPlot, thisPersona), { role: "user", content: skipTurnRequest(thisPersona) }]
         : buildMessages(history, thisPlot, thisPersona),
       unlimited,
@@ -247,31 +249,74 @@ async function switchVariant(msg, step) {
   await refresh();
 }
 
+// 메시지 수정: 제타처럼 화면 전체를 덮는 수정 창. 캐릭터 답변은 말하는 사람을 "@이름:"으로 보여 주고,
+// 줄 맨 앞에서 @를 치면 인물 목록이 떠서 눌러 넣을 수 있다 (캐릭터 불러오기)
 function startEdit(turn, msg) {
-  turn.classList.add("editing");
-  turn.querySelector(".turn-foot").hidden = true;
-  turn.querySelector(".extras").hidden = true;
-  const content = turn.querySelector(".turn-content");
-  content.innerHTML = `<div class="edit-box"><textarea class="edit-area"></textarea>
-    <div class="row edit-bar"><button type="button" class="secondary small">취소</button><button type="button" class="primary small">저장</button></div></div>`;
-  const area = content.querySelector("textarea");
-  area.value = msg.content;
-  const fit = () => {
-    area.style.height = "auto";
-    area.style.height = area.scrollHeight + 2 + "px";
+  const bot = msg.role === "assistant";
+  const sheet = document.createElement("div");
+  sheet.className = "edit-sheet";
+  sheet.innerHTML = `<div class="sheet-grip"></div><textarea class="edit-sheet-area" spellcheck="false"></textarea>
+    <div class="edit-picker" hidden></div>
+    <div class="edit-sheet-bar">
+      <button type="button" class="round-btn" data-act="close" aria-label="취소"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button><span class="spacer"></span>
+      <button type="button" class="round-btn" data-act="star" aria-label="*서술*로 감싸기"><svg viewBox="0 0 24 24"><path d="M12 4v16M5 8l14 8M19 8L5 16"/></svg></button>
+      <button type="button" class="round-btn ok" data-act="save" aria-label="저장">${ICONS.check}</button>
+    </div>`;
+  const area = sheet.querySelector("textarea");
+  const picker = sheet.querySelector(".edit-picker");
+  area.value = bot ? toEditText(msg.content) : msg.content;
+  // @ 목록: 플롯 인물 + 나레이션 + 이 답변에 나온 인물
+  const names = [...new Set([
+    ...plot.characters.map((c) => c.name).filter(Boolean),
+    "나레이션",
+    ...(bot ? splitSegments(splitBlocks(msg.content).body, plot).filter((g) => g.kind === "char").map((g) => g.name) : [])
+  ])];
+  const showPicker = () => {
+    const before = area.value.slice(0, area.selectionStart);
+    const m = bot && before.match(/(?:^|\n)@([^\s:@]{0,20})$/);
+    const hits = m ? names.filter((n) => n.startsWith(m[1])) : [];
+    picker.hidden = !hits.length;
+    picker.innerHTML = "";
+    for (const name of hits) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "edit-chip";
+      const who = plot.characters.find((c) => c.name === name);
+      chip.innerHTML = `<span class="avatar"></span><span></span>`;
+      if (name === "나레이션") chip.firstChild.remove();
+      else paintAvatar(chip.querySelector(".avatar"), who || { name, generic: true });
+      chip.lastChild.textContent = name;
+      chip.addEventListener("pointerdown", (e) => e.preventDefault()); // 키보드가 내려가지 않게
+      chip.addEventListener("click", () => {
+        const pos = area.selectionStart;
+        const from = pos - m[1].length;
+        area.value = area.value.slice(0, from) + name + ": " + area.value.slice(pos);
+        area.selectionStart = area.selectionEnd = from + name.length + 2;
+        area.focus();
+        showPicker();
+      });
+      picker.appendChild(chip);
+    }
   };
-  area.addEventListener("input", fit);
-  const [cancelBtn, saveBtn] = content.querySelectorAll("button");
-  cancelBtn.addEventListener("click", () => renderAll());
-  saveBtn.addEventListener("click", async () => {
-    const text = area.value.trim();
+  area.addEventListener("input", showPicker);
+  area.addEventListener("click", showPicker);
+  const close = () => sheet.remove();
+  sheet.querySelector('[data-act="close"]').addEventListener("click", close);
+  const star = sheet.querySelector('[data-act="star"]');
+  star.addEventListener("pointerdown", (e) => e.preventDefault());
+  star.addEventListener("click", () => wrapSelection(area, "*", () => {}));
+  sheet.querySelector('[data-act="save"]').addEventListener("click", async () => {
+    const text = (bot ? fromEditText(area.value) : area.value).trim();
     if (!text) return;
     msg.content = text;
     await updateMessage(msg);
+    close();
     await refresh();
   });
-  fit();
+  $("view-chat").appendChild(sheet);
   area.focus();
+  area.setSelectionRange(area.value.length, area.value.length);
+  area.scrollTop = area.scrollHeight;
 }
 
 // ---- 대화 삭제 모드: 시작점을 고르면 그 메시지부터 뒤를 모두 지운다 ----
@@ -816,11 +861,11 @@ function autoGrow() {
   input.style.overflowY = input.scrollHeight > 160 ? "auto" : "hidden";
 }
 
-function wrapSelection(ta, mark) {
+function wrapSelection(ta, mark, after = autoGrow) {
   const { selectionStart: s, selectionEnd: e, value } = ta;
   const selected = value.slice(s, e);
   ta.value = value.slice(0, s) + mark + selected + mark + value.slice(e);
   ta.selectionStart = ta.selectionEnd = selected ? e + mark.length * 2 : s + mark.length;
   ta.focus();
-  autoGrow();
+  after();
 }

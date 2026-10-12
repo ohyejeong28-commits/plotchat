@@ -41,6 +41,37 @@ function speakerOf(speaker, plot) {
   return { kind: "char", name: speaker, who: who || { name: speaker, image: "", generic: true } };
 }
 
+// 수정 화면 글: 제타처럼 말하는 사람을 "@이름: 첫 줄"로 보여 준다 ([이름] 머리줄 ↔ @이름:)
+export function toEditText(text) {
+  if (!text.split("\n").some((l) => HEADER.test(l))) return text;
+  const out = [];
+  let pending = null;
+  for (const line of text.split("\n")) {
+    const m = line.match(HEADER);
+    if (m) {
+      if (pending !== null) out.push(`@${pending}:`);
+      pending = m[1].trim();
+    } else if (pending !== null) {
+      if (!line.trim()) continue; // 머리줄과 첫 줄 사이의 빈 줄
+      out.push(`@${pending}: ${line.trimStart()}`);
+      pending = null;
+    } else out.push(line);
+  }
+  if (pending !== null) out.push(`@${pending}:`);
+  return out.join("\n");
+}
+
+export function fromEditText(text) {
+  const out = [];
+  for (const line of text.split("\n")) {
+    const m = line.match(/^@([^:@\n]{1,30}):[ \t]*(.*)$/);
+    if (!m) { out.push(line); continue; }
+    out.push(`[${m[1].trim()}]`);
+    if (m[2].trim()) out.push(m[2]);
+  }
+  return out.join("\n");
+}
+
 // 모델 이름 줄임: models/gemini-3.6-flash → 3.6-flash
 export const modelLabel = (id = "") => id.replace(/^models\//, "").replace(/^gemini-/, "");
 // 더 짧게 (위쪽 모델 버튼용): 3.8-flash → 3.8, 3.5-flash-lite → 3.5 lite, gemma-4-31b-it → gemma 31b
