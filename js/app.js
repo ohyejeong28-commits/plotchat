@@ -61,3 +61,23 @@ async function receiveNewPlots() {
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
+
+// 새 버전이 올라왔으면 한 번 새로 고친다: 홈 화면 앱은 완전히 꺼지지 않으면 예전 화면을 계속 붙잡고 있다.
+// 켤 때와 앱으로 돌아올 때 서버의 버전 번호를 확인한다. AI 답변을 받는 중이면 건드리지 않고,
+// 같은 버전으로는 한 번만 새로 고친다 (혹시 예전 파일이 또 와도 계속 새로 고치지 않게).
+async function checkUpdate() {
+  if (!location.protocol.startsWith("http") || document.getElementById("chatSend")?.classList.contains("stop")) return;
+  try {
+    const res = await fetch(`js/version.js?t=${Date.now()}`, { cache: "no-store" });
+    const latest = (await res.text()).match(/VERSION = "([^"]+)"/)?.[1];
+    if (!latest || latest === VERSION || sessionStorage.getItem("plotchat.reloadedFor") === latest) return;
+    sessionStorage.setItem("plotchat.reloadedFor", latest);
+    location.reload();
+  } catch {
+    // 인터넷이 안 되면 다음에 다시 확인한다
+  }
+}
+checkUpdate();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") checkUpdate();
+});
