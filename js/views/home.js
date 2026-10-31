@@ -11,6 +11,25 @@ const CHAT_ICON = '<svg viewBox="0 0 24 24"><path d="M12 3C6.8 3 2.5 6.6 2.5 11c
 
 export function initHome() {
   register("home", openHome);
+  $("homeSearchBtn").addEventListener("click", () => {
+    const box = $("homeSearch");
+    box.hidden = !box.hidden;
+    if (!box.hidden) $("homeSearchInput").focus();
+    else { $("homeSearchInput").value = ""; filterCards(); }
+  });
+  $("homeSearchInput").addEventListener("input", filterCards);
+}
+
+// 검색어가 제목, 소개, 태그, 캐릭터 이름에 들어 있는 카드만 남긴다
+function filterCards() {
+  const q = $("homeSearchInput").value.trim().toLowerCase();
+  let hits = 0;
+  for (const card of $("plotGrid").children) {
+    const hit = !q || card.dataset.search.includes(q);
+    card.hidden = !hit;
+    hits += hit;
+  }
+  $("homeNoHit").hidden = hits > 0 || !$("plotGrid").children.length;
 }
 
 async function openHome() {
@@ -32,9 +51,11 @@ async function openHome() {
     card.querySelector(".card-desc").textContent = fillVars(plot.description, plot, me);
     card.querySelector(".card-tags").textContent = plot.tags.map((t) => "#" + t).join(" ");
     card.querySelector(".card-sub").textContent = plot.characters.map((c) => c.name).filter(Boolean).join(", ");
+    card.dataset.search = [plot.title, plot.description, ...plot.tags, ...plot.characters.map((c) => c.name)].join(" ").toLowerCase();
     card.addEventListener("click", () => go("plot", plot.id));
     grid.appendChild(card);
   }
+  filterCards();
   $("homeEmpty").hidden = plots.length > 0;
   showView("home");
 }

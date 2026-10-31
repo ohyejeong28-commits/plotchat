@@ -13,7 +13,14 @@ let editing = null; // 편집 중인 프로필
 export function initPersonas() {
   register("my", async () => {
     await renderMyList();
+    await paintMyHeader();
     showView("my");
+  });
+  setupMyPanes();
+  $("myHeader").addEventListener("click", () => {
+    const id = loadSettings().defaultPersonaId;
+    if (id) go("persona", id);
+    else go("persona", null);
   });
   register("persona", openEditor);
 
@@ -44,6 +51,39 @@ export function initPersonas() {
 }
 
 // ---- 마이페이지 목록 ----
+
+// 맨 위 프로필 머리: 기본 대화 프로필 (제타의 내 프로필 자리)
+async function paintMyHeader() {
+  const all = await listPersonas();
+  const me = all.find((p) => p.id === loadSettings().defaultPersonaId) || all[0];
+  paintAvatar($("myAvatar"), me || { name: "?", generic: true });
+  $("myName").textContent = me ? me.name : "대화 프로필을 만들어 주세요";
+  $("myNameSub").textContent = me ? `기본 대화 프로필 · 프로필 ${all.length}개` : "눌러서 첫 프로필을 만들어요";
+}
+
+// 마이페이지 항목들을 제타 메뉴처럼: 제목 줄을 누르면 아래 내용이 펼쳐진다. 처음엔 대화 프로필만 열어 둔다
+function setupMyPanes() {
+  const view = $("view-my");
+  for (const title of [...view.querySelectorAll(":scope > .pane-title")]) {
+    const body = document.createElement("div");
+    body.className = "pane-body";
+    let node = title.nextSibling;
+    while (node && !(node.nodeType === 1 && (node.classList.contains("pane-title") || node.id === "appVersion"))) {
+      const next = node.nextSibling;
+      body.appendChild(node);
+      node = next;
+    }
+    title.after(body);
+    const open = title.textContent.includes("대화 프로필");
+    title.classList.toggle("open", open);
+    body.hidden = !open;
+    title.addEventListener("click", () => {
+      const now = body.hidden;
+      title.classList.toggle("open", now);
+      body.hidden = !now;
+    });
+  }
+}
 
 async function renderMyList() {
   const list = $("personaList");

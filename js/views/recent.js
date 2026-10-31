@@ -1,7 +1,7 @@
 // 대화 탭: 플롯마다 지금 걸려 있는 대화 하나씩, 최신순 (제타의 대화 목록)
 import { getPlot } from "../plots.js";
 import { listAllChats, getMessage } from "../chats.js";
-import { paintCover, previewText } from "../render.js";
+import { paintCover, previewText, formatDate } from "../render.js";
 import { fillVars } from "../prompt.js";
 import { personaForChat } from "../personas.js";
 import { register, go, showView } from "../router.js";
@@ -25,7 +25,8 @@ async function openRecent() {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "recent";
-    row.innerHTML = `<div class="thumb"></div><div class="meta"><div class="name"></div><div class="preview"></div></div>`;
+    row.innerHTML = `<div class="thumb"></div><div class="meta"><div class="name"></div><div class="preview"></div></div><span class="time"></span>`;
+    row.querySelector(".time").textContent = formatDate(Math.max(chat.openedAt || 0, chat.updatedAt)); // 목록 순서(마지막으로 연 때)와 같은 시각
     paintCover(row.querySelector(".thumb"), plot);
     row.querySelector(".name").textContent = plot.name;
     row.querySelector(".preview").textContent = head ? previewText(fillVars(head.content, plot, await personaForChat(chat))) : "";

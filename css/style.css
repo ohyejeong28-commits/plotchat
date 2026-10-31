@@ -44,7 +44,25 @@ body.full #bottomNav{display:none;}
 .nav-item.active{color:#fff;}
 
 /* 공통 */
-.page-head{position:sticky;top:0;z-index:5;background:var(--bg);padding:16px 0 12px;}
+.page-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;background:var(--bg);padding:16px 0 12px;}
+.head-btn{background:none;padding:6px;margin-right:-6px;}
+.head-btn svg{width:24px;height:24px;stroke:#fff;stroke-width:2;fill:none;stroke-linecap:round;}
+.search-row{margin:0 0 12px;}
+.search-row input{width:100%;background:var(--surface);border:0;border-radius:12px;padding:11px 14px;}
+.empty-hint{text-align:center;color:var(--ink-dim);padding:60px 0;}
+/* 마이페이지 머리: 기본 프로필 */
+.my-header{display:flex;align-items:center;gap:14px;width:100%;padding:16px;margin-bottom:8px;background:var(--surface);border-radius:var(--radius);text-align:left;}
+.my-header .avatar.big{width:56px;height:56px;font-size:22px;}
+.my-header-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.my-header-text b{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.my-header-text small{font-size:13px;color:var(--ink-dim);}
+.my-header > svg{width:20px;height:20px;stroke:var(--ink-dim);stroke-width:2;fill:none;stroke-linecap:round;flex:none;}
+/* 마이페이지 항목: 제타 메뉴처럼 줄로, 누르면 펼친다 */
+#view-my .pane-title{display:flex;align-items:center;justify-content:space-between;margin:0;padding:16px 4px;border-bottom:1px solid #262628;font-size:16px;cursor:pointer;}
+#view-my .pane-title::after{content:'';width:9px;height:9px;border-right:2px solid var(--ink-dim);border-bottom:2px solid var(--ink-dim);transform:rotate(-45deg);transition:transform .15s;}
+#view-my .pane-title.open::after{transform:rotate(45deg);}
+#view-my .pane-body{padding:14px 0 6px;}
+#view-my .pane-body[hidden]{display:none;}
 .page-head h1{margin:0;font-size:22px;font-weight:800;}
 .pane-title{font-size:17px;font-weight:700;line-height:1.4;margin:24px 0 12px;}
 .box{background:var(--surface);border-radius:var(--radius);padding:18px;margin-bottom:12px;}
@@ -120,6 +138,7 @@ select:disabled{color:var(--ink-dim);}
 /* 홈: 플롯 카드 2열 */
 .plot-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .plot-card{position:relative;display:block;padding:0;border-radius:14px;overflow:hidden;background:var(--surface);aspect-ratio:3/4.6;text-align:left;}
+.plot-card[hidden]{display:none;}
 .plot-card .cover{position:absolute;inset:0;background:#2a2a2a center/cover no-repeat;}
 .plot-card .cover.letter{display:grid;place-items:start center;padding-top:22%;font-size:64px;font-weight:800;color:rgba(255,255,255,.85);
   background:hsl(var(--h) 30% 26%);}
@@ -152,6 +171,7 @@ select:disabled{color:var(--ink-dim);}
 .recent .thumb{--h:250;width:54px;height:64px;flex:none;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:22px;
   background:hsl(var(--h) 30% 26%) center/cover no-repeat;}
 .recent .meta{flex:1;min-width:0;}
+.recent .time{flex:none;font-size:12px;color:var(--ink-dim);align-self:flex-start;margin-top:10px;}
 .recent .name{font-weight:700;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .recent .preview{margin-top:2px;font-size:13.5px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .badge{display:inline-block;padding:1px 7px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;vertical-align:middle;}
@@ -169,7 +189,12 @@ select:disabled{color:var(--ink-dim);}
 .plot-cover-text h1{margin:0 0 4px;font-size:24px;font-weight:800;}
 .plot-cover-text p{margin:0;color:#ddd;}
 .plot-body{padding:10px 16px 32px;}
-.plot-body .tags{margin-bottom:16px;}
+.sec-info{font-size:12px;font-weight:400;color:var(--ink-dim);margin-left:8px;}
+.plot-body .tag-text{font-size:14px;line-height:1.6;color:#a0a0a0;margin-bottom:12px;}
+.plot-body .tag-text span{display:inline-block;margin-right:6px;}
+.plot-stats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.plot-stats span{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:7px;background:#2a2a2b;font-size:13px;color:#ddd;}
+.plot-stats svg{width:14px;height:14px;fill:#bdbdbd;}
 /* 플롯 프로필: 소개 / 캐릭터 카드 / 인트로 (제타처럼 길면 접기) */
 .plot-sec[hidden]{display:none;}
 .plain-text{white-space:pre-wrap;word-break:break-word;}

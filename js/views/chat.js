@@ -5,6 +5,7 @@ import { buildSystem, buildSuggestSystem, buildMessages, fillVars, choicesOn, SU
 import { getPlot } from "../plots.js";
 import { getPersona, personaForChat } from "../personas.js";
 import { getMemory, saveMemory, memoryWindow, needsSummary, summarize } from "../memory.js";
+import { buildCharNotes, needsCharNotes } from "../charnotes.js";
 import {
   getChat, latestChat, createChat, saveChat, addMessage, setHead, updateMessage, deleteMessages, branchChat,
   loadTree, pathOf, siblingsOf, latestLeaf, descendantsOf
@@ -97,6 +98,21 @@ async function openChat(plotId, chatId) {
   scrollDown();
   autoGrow();
   $("chatInput").focus();
+  maybeCharNotes(plot, path.length); // 기존 대화가 충분하면 뒤에서 캐릭터를 분석해 둔다
+}
+
+// 캐릭터 노트가 없거나 오래됐으면 뒤에서 만든다. 끝나면 이 대화에 바로 반영한다
+async function maybeCharNotes(thisPlot, msgCount) {
+  if (!hasKey() || !needsCharNotes(thisPlot, msgCount)) return;
+  showToast("기존 대화로 캐릭터를 분석하고 있어요…");
+  try {
+    const notes = await buildCharNotes(thisPlot.id);
+    if (!notes) return;
+    if (plot?.id === thisPlot.id) plot.charNotes = notes;
+    showToast("캐릭터 노트를 만들었어요. 이제 성격과 말투를 더 잘 지켜요.");
+  } catch {
+    // 한도 초과 등: 다음에 다시 시도한다
+  }
 }
 
 // 저장소에서 다시 읽어 화면을 그린다 (smooth: 맨 아래로 부드럽게 내려간다)

@@ -5,7 +5,8 @@ import { paintAvatar, paintCover, previewText, formatDate, splitBlocks, splitSeg
 import { fillVars } from "../prompt.js";
 import { personaForChat, defaultPersona } from "../personas.js";
 import { register, go, back, showView } from "../router.js";
-import { openSheet, closeOverlays, menuItem, ICONS } from "../ui.js";
+import { openSheet, closeOverlays, menuItem, ICONS, showToast } from "../ui.js";
+import { buildCharNotes } from "../charnotes.js";
 
 const $ = (id) => document.getElementById(id);
 let plotId = null;
@@ -20,6 +21,15 @@ export function initPlot() {
     g.className = "sheet-group";
     g.append(
       menuItem({ label: "새 대화", sub: "처음부터 새로 시작해요", onClick: () => { closeOverlays(); go("chat", plotId, "new"); } }),
+      menuItem({ label: "캐릭터 분석하기", sub: "가장 긴 대화로 성격·말투 노트를 만들어요", onClick: async () => {
+        closeOverlays();
+        showToast("기존 대화로 캐릭터를 분석하고 있어요…");
+        try {
+          await buildCharNotes(plotId, { force: true });
+          showToast("캐릭터 노트를 만들었어요.");
+          openPlot(plotId);
+        } catch (err) { showToast(err.message); }
+      } }),
       menuItem({ label: "플롯 수정", onClick: () => { closeOverlays(); go("edit", plotId); } }),
       menuItem({ label: "플롯 삭제", danger: true, onClick: () => { closeOverlays(); removePlot(); } })
     );
@@ -51,16 +61,23 @@ async function openPlot(id) {
   const me = await defaultPersona(); // 소개 글의 {{user}}에 넣을 이름
   $("plotDesc").textContent = fillVars(plot.description, plot, me);
 
-  const tags = $("plotTags");
-  tags.innerHTML = "";
-  for (const t of plot.tags) {
-    const span = document.createElement("span");
-    span.className = "tag";
-    span.textContent = "#" + t;
-    tags.appendChild(span);
-  }
+  $("plotTags").innerHTML = plot.tags.map((t) => `<span>#${escapeHtml(t)}</span>`).join(""); // 태그 하나가 줄 중간에서 끊기지 않게
+  // 제타 프로필처럼 통계 칩: 대화 수, 캐릭터 수, 가져온 곳
+  const chatCount = (await listChats(plot.id)).length;
+  $("plotStats").innerHTML = [
+    `<span><svg viewBox="0 0 24 24"><path d="M12 3C6.8 3 2.5 6.6 2.5 11c0 2.3 1.2 4.4 3.1 5.9L5 21l4.3-2.4c.9.2 1.8.3 2.7.3 5.2 0 9.5-3.6 9.5-8S17.2 3 12 3z"/></svg>대화 ${chatCount}</span>`,
+    `<span>캐릭터 ${plot.characters.filter((c) => c.name).length}</span>`,
+    plot.source?.startsWith("zeta") ? "<span>제타에서 가져옴</span>" : "<span>내가 만든 플롯</span>",
+  ].join("");
 
   $("plotBadges").hidden = !plot.unlimited;
+
+  // 캐릭터 노트: 기존 대화에서 분석한 성격·말투
+  $("plotNotesSec").hidden = !plot.charNotes?.text;
+  if (plot.charNotes?.text) {
+    $("plotNotes").innerHTML = richText(plot.charNotes.text);
+    $("plotNotesInfo").textContent = `${formatDate(plot.charNotes.builtAt)} · 메시지 ${plot.charNotes.msgCount}개 기준`;
+  }
 
   // 소개: 세계관(기본 설정)
   $("plotAboutSec").hidden = !plot.world.trim();

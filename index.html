@@ -21,8 +21,12 @@
 
   <!-- 홈: 플롯 카드 2열 -->
   <section id="view-home" class="view">
-    <header class="page-head"><h1>홈</h1></header>
+    <header class="page-head"><h1>홈</h1>
+      <button id="homeSearchBtn" class="head-btn" type="button" aria-label="검색"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
+    </header>
+    <div id="homeSearch" class="search-row" hidden><input id="homeSearchInput" type="search" placeholder="플롯, 캐릭터, 태그 검색" autocomplete="off"></div>
     <div id="plotGrid" class="plot-grid"></div>
+    <p id="homeNoHit" class="empty-hint" hidden>검색 결과가 없어요</p>
     <div id="homeEmpty" class="empty" hidden>
       <p class="empty-title">아직 플롯이 없어요</p>
       <button class="primary" type="button" data-go="edit">플롯 제작</button>
@@ -55,6 +59,11 @@
   <!-- 마이페이지: AI 연결, 대화 프로필 -->
   <section id="view-my" class="view">
     <header class="page-head"><h1>마이페이지</h1></header>
+    <button id="myHeader" class="my-header" type="button">
+      <span id="myAvatar" class="avatar big"></span>
+      <span class="my-header-text"><b id="myName">대화 프로필을 만들어 주세요</b><small id="myNameSub">기본 대화 프로필</small></span>
+      <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
 
     <h2 class="pane-title">내 대화 프로필</h2>
     <p class="hint">대화에서 내가 연기할 캐릭터예요. 캐릭터가 이 이름으로 나를 부르고 설정에 맞게 반응해요.
@@ -156,7 +165,8 @@
       </div>
     </div>
     <div class="plot-body">
-      <div id="plotTags" class="tags"></div>
+      <div id="plotTags" class="tag-text"></div>
+      <div id="plotStats" class="plot-stats"></div>
       <div id="plotBadges" class="plot-badges" hidden><span class="badge-unlimited"><svg viewBox="0 0 24 24"><path d="M12 3.5v17M4.6 7.75l14.8 8.5M4.6 16.25l14.8-8.5"/></svg>언리밋</span></div>
       <!-- 제타 플롯 프로필처럼: 소개 / 캐릭터 / 인트로 (길면 접어 두고 더보기) -->
       <section id="plotAboutSec" class="plot-sec">
@@ -166,6 +176,10 @@
       <section class="plot-sec">
         <h2 class="pane-title">캐릭터</h2>
         <div id="plotCast" class="char-cards"></div>
+      </section>
+      <section id="plotNotesSec" class="plot-sec" hidden>
+        <h2 class="pane-title">캐릭터 노트 <small id="plotNotesInfo" class="sec-info"></small></h2>
+        <div class="fold-box"><div id="plotNotes" class="fold plain-text"></div><button type="button" class="fold-btn">더보기</button></div>
       </section>
       <section id="plotIntroSec" class="plot-sec">
         <h2 class="pane-title">인트로</h2>

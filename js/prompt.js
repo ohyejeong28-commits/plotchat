@@ -203,6 +203,44 @@ ${chatModeRule(unlimited)}
   return fillVars(text, plot, persona);
 }
 
+// ---- 캐릭터 노트 ----
+// 플롯의 가장 긴 대화를 골고루 표본으로 뽑아, 인물별 성격·말투·감정 반응을 한 번 정리해 둔다 (charnotes.js가 부른다)
+export const NOTES_SAMPLE_CHARS = 14000;
+
+export function sampleTranscript(path, max = NOTES_SAMPLE_CHARS) {
+  const msgs = path.filter((m) => m.content?.trim());
+  const per = 700; // 메시지 하나에서 쓸 최대 글자
+  const want = Math.max(8, Math.floor(max / per));
+  const step = Math.max(1, msgs.length / want);
+  const picked = [];
+  for (let i = 0; i < msgs.length && picked.length < want; i += step) picked.push(msgs[Math.floor(i)]);
+  const last = msgs[msgs.length - 1];
+  if (last && !picked.includes(last)) picked.push(last);
+  return picked.map((m) => `${m.role === "user" ? "(사용자)" : "(캐릭터)"}\n${m.content.trim().slice(0, per)}`).join("\n\n");
+}
+
+export function buildCharNotesRequest(plot, persona, path) {
+  const user = persona?.name || "사용자";
+  const names = plot.characters.map((c) => c.name).filter(Boolean);
+  const system = `너는 롤플레이 대화를 분석해 캐릭터 연기 가이드를 쓰는 편집자다. 아래 설정과 대화 표본을 읽고, 인물이 실제로 어떻게 말하고 행동했는지를 정리한다. 설정에 적힌 내용을 베끼지 말고 대화에서 확인된 것만 쓴다.${buildContext({ ...plot, charNotes: null }, persona, [], {})}`;
+  const content = `[대화 표본] 전체 대화(${path.length}개 메시지)에서 앞·중간·최근을 골고루 뽑았다. (사용자)는 ${user}, (캐릭터)는 AI가 쓴 부분이다.
+
+${sampleTranscript(path)}
+
+위 대화를 바탕으로 [캐릭터 노트]를 쓴다. 주요 인물(${names.join(", ")}${names.length ? ", " : ""}자주 나오는 조연)마다 아래 항목을 채운다. 전체 1800자 안에서 간결하게, 설명문이 아니라 규칙처럼 쓴다.
+
+## 이름
+- 성격 핵심: 대화에서 드러난 성격 2~3줄 (설정과 다르게 드러난 점이 있으면 그것을 우선)
+- 말투 규칙: 존댓말/반말, 자주 쓰는 어미, ${user}를 부르는 호칭, 말버릇, 문장 길이
+- 실제 대사 예시: 대화에서 그대로 가져온 짧은 대사 4~5줄 (따옴표로)
+- 감정 반응: 화날 때 / 다정할 때 / 곤란할 때 각각 어떻게 말하고 행동하는지 한 줄씩
+- 하지 않는 것: 이 인물이 절대 하지 않을 말이나 행동
+- ${user}와의 관계: 지금 단계와 태도
+
+마지막에 "## 공통" 항목으로 이 이야기의 분위기와 서술 톤(문장 길이, 묘사 밀도)을 2~3줄 적는다. 다른 말은 덧붙이지 않는다.`;
+  return { system, content };
+}
+
 // ---- 말투 기준 ----
 // 대화 기록에서 등장인물별 실제 대사를 골고루 뽑는다 (앞부분·중간·최근을 섞어서).
 // 대화가 길어져 앞부분이 요약으로 밀려나도 인물의 원래 말투(존댓말, 어미, 호칭, 말 길이)를 잃지 않게 한다.
@@ -353,6 +391,13 @@ ${plot.world.trim()}`;
 
 [캐릭터: ${c.name}]
 ${c.desc?.trim() || `이름: ${c.name}`}`;
+  }
+
+  if (plot.charNotes?.text?.trim()) {
+    text += `
+
+[캐릭터 노트] 지금까지의 대화에서 확인된 이 인물들의 실제 성격, 말투, 감정 반응이다. 설정과 함께 최우선으로 지키고, 여기 적힌 말투 규칙과 어긋나는 대사를 쓰지 않는다.
+${plot.charNotes.text.trim()}`;
   }
 
   if (persona && !personaLast) {
